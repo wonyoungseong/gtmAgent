@@ -10,6 +10,13 @@ import { homedir } from "os";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
+// Change to home directory to avoid ENOENT errors
+try {
+  process.chdir(homedir());
+} catch (e) {
+  // Ignore if already there
+}
+
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = dirname(__filename);
 
