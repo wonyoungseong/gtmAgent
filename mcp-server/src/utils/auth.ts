@@ -1,7 +1,8 @@
 import { google } from "googleapis";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 type TagManagerClient = ReturnType<typeof google.tagmanager>;
 
@@ -16,11 +17,39 @@ interface ServiceAccountCredentials {
   token_uri: string;
 }
 
-// Service Account credential paths to check
+// Get the directory where this module is located
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, "..", ".."); // mcp-server root
+const credentialFolder = join(projectRoot, "..", "Credential"); // ../Credential folder
+
+// Find first .json file in Credential folder
+function findCredentialInFolder(folderPath: string): string | null {
+  try {
+    if (!existsSync(folderPath)) return null;
+    const files = readdirSync(folderPath);
+    const jsonFile = files.find(f => f.endsWith(".json"));
+    if (jsonFile) {
+      return join(folderPath, jsonFile);
+    }
+  } catch {
+    // Folder doesn't exist or not readable
+  }
+  return null;
+}
+
+// Service Account credential paths to check (in priority order)
 const CREDENTIAL_PATHS = [
+  // 1. Environment variable (explicit path)
   process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  // 2. GTM MCP config directory (setup by gtm-mcp-setup)
+  join(homedir(), ".gtm-mcp", "credentials.json"),
+  // 3. Credential folder (development)
+  findCredentialInFolder(credentialFolder),
+  // 4. Current directory
   join(process.cwd(), "service-account.json"),
   join(process.cwd(), "credentials.json"),
+  // 5. Legacy config directory
   join(homedir(), ".config", "gtm-mcp", "service-account.json"),
 ];
 
@@ -67,8 +96,10 @@ function loadCredentials(): ServiceAccountCredentials {
   }
 
   throw new Error(
-    "No Service Account credentials found. Please set GOOGLE_APPLICATION_CREDENTIALS, " +
-    "GTM_SERVICE_ACCOUNT_JSON, or place service-account.json in the current directory."
+    "No Service Account credentials found. Please either:\n" +
+    "1. Run 'gtm-mcp-setup' to configure credentials (recommended)\n" +
+    "2. Set GOOGLE_APPLICATION_CREDENTIALS environment variable to the JSON file path\n" +
+    "3. Place credentials in ~/.gtm-mcp/credentials.json"
   );
 }
 

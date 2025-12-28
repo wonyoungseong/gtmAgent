@@ -4,6 +4,7 @@ node_modules/
 # Auth files (sensitive)
 credentials.json
 token.json
+Credential/
 
 # OS files
 .DS_Store
@@ -13,3 +14,6 @@ exports/
 
 # PDF documents
 *.pdf
+
+# Local MCP config
+.mcp.json

@@ -1,74 +1,77 @@
-# GTM MCP Server (Service Account)
+# GTM MCP Server
 
-Google Tag Manager MCP Server with Service Account authentication. Returns **full container data without pagination limits**.
+Google Tag Manager MCP Server with Service Account authentication and Claude Skills.
 
 ## Features
 
 - **Service Account Authentication**: No OAuth flow required
-- **No Pagination Limits**: Returns complete container version data
-- **Full Export**: `gtm_export_full` tool for complete JSON export
-- **Claude Code Integration**: Works as a local MCP server
+- **Full API Coverage**: All 19 GTM tools
+- **Pagination Support**: Configurable page sizes for large datasets
+- **Claude Skills**: Auto-installs GTM Agent skills to `~/.claude/skills/gtm/`
+- **Easy Setup**: CLI tool for credential configuration
+
+## Quick Install
+
+```bash
+# Install from GitHub
+npm install -g github:seong-won-yeong/gtmAgent
+
+# Setup credentials
+gtm-mcp-setup
+
+# Add to Claude Desktop (.mcp.json)
+{
+  "mcpServers": {
+    "gtm": {
+      "command": "gtm-mcp"
+    }
+  }
+}
+```
 
 ## Setup
 
 ### 1. Create a Service Account
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
+2. Create or select a project
 3. Enable the **Tag Manager API**:
-   - Go to "APIs & Services" → "Library"
-   - Search for "Tag Manager API"
-   - Click "Enable"
+   - "APIs & Services" → "Library" → Search "Tag Manager API" → Enable
 4. Create a Service Account:
-   - Go to "IAM & Admin" → "Service Accounts"
-   - Click "Create Service Account"
-   - Give it a name (e.g., "gtm-mcp-service")
-   - Grant appropriate roles (e.g., "Tag Manager Admin" or custom roles)
+   - "IAM & Admin" → "Service Accounts" → "Create Service Account"
 5. Create a key:
-   - Click on the service account
-   - Go to "Keys" tab
-   - Click "Add Key" → "Create new key" → "JSON"
+   - Click the service account → "Keys" → "Add Key" → "JSON"
    - Download the JSON file
 
 ### 2. Grant GTM Access
 
 1. Go to [Google Tag Manager](https://tagmanager.google.com/)
-2. Select your container
-3. Go to "Admin" → "User Management"
-4. Add the service account email (from the JSON file)
-5. Grant appropriate permissions (Read/Edit/Publish)
+2. Select your container → "Admin" → "User Management"
+3. Add the service account email (from the JSON file)
+4. Grant appropriate permissions (Read/Edit/Publish)
 
 ### 3. Configure Credentials
 
-Option A: Place the JSON file in the project:
+Run the setup CLI:
+
 ```bash
-cp ~/Downloads/your-service-account.json ./service-account.json
+gtm-mcp-setup
 ```
 
-Option B: Set environment variable:
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-```
+This will:
+- Prompt for your Service Account JSON file path
+- Copy it to `~/.gtm-mcp/credentials.json`
+- Validate the credentials
 
-Option C: Set JSON content directly:
-```bash
-export GTM_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
-```
+### 4. Configure Claude Desktop
 
-### 4. Configure Claude Code
-
-Add to `~/.claude.json`:
+Add to your `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "gtm-local": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/path/to/gtmAgent/mcp-server/dist/index.js"],
-      "env": {
-        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/service-account.json"
-      }
+    "gtm": {
+      "command": "gtm-mcp"
     }
   }
 }
@@ -76,37 +79,72 @@ Add to `~/.claude.json`:
 
 ## Available Tools
 
-| Tool | Description |
-|------|-------------|
-| `gtm_account` | List/get GTM accounts |
-| `gtm_container` | List/get containers |
-| `gtm_workspace` | List/get workspaces |
-| `gtm_version` | Get container versions (FULL data) |
-| `gtm_tag` | List/get tags |
-| `gtm_trigger` | List/get triggers |
-| `gtm_variable` | List/get variables |
-| `gtm_export_full` | Export complete container version |
+| Tool | Actions |
+|------|---------|
+| `gtm_account` | get, list, update |
+| `gtm_container` | create, get, list, update, remove, combine, lookup, moveTagId, snippet |
+| `gtm_workspace` | create, get, list, update, remove, createVersion, getStatus, sync, quickPreview, resolveConflict |
+| `gtm_tag` | create, get, list, update, remove, revert |
+| `gtm_trigger` | create, get, list, update, remove, revert |
+| `gtm_variable` | create, get, list, update, remove, revert |
+| `gtm_version` | get, live, publish, remove, setLatest, undelete, update |
+| `gtm_built_in_variable` | create, list, remove, revert |
+| `gtm_client` | create, get, list, update, remove, revert |
+| `gtm_destination` | get, list, link, unlink |
+| `gtm_environment` | create, get, list, update, remove, reauthorize |
+| `gtm_folder` | create, get, list, update, remove, revert, entities, moveEntitiesToFolder |
+| `gtm_gtag_config` | create, get, list, update, remove |
+| `gtm_template` | create, get, list, update, remove, revert |
+| `gtm_transformation` | create, get, list, update, remove, revert |
+| `gtm_user_permission` | create, get, list, update, remove |
+| `gtm_version_header` | list, latest |
+| `gtm_zone` | create, get, list, update, remove, revert |
+| `gtm_export_full` | Export complete container data |
+| `gtm_remove_session` | Clear session data |
 
 ## Usage Examples
 
-### List Accounts
-```
+```javascript
+// List Accounts
 gtm_account(action: "list")
-```
 
-### Get Live Version (Full Data)
-```
+// List Tags with Pagination
+gtm_tag(action: "list", accountId: "123", containerId: "456", workspaceId: "789", page: 1, itemsPerPage: 20)
+
+// Get Live Version
 gtm_version(action: "live", accountId: "123", containerId: "456")
+
+// Create a Tag
+gtm_tag(action: "create", accountId: "123", containerId: "456", workspaceId: "789", createOrUpdateConfig: {...})
 ```
 
-### Export Full Container
-```
-gtm_export_full(accountId: "123", containerId: "456", versionType: "live")
-```
+## Credential Search Order
+
+1. `GTM_SERVICE_ACCOUNT_JSON` environment variable (JSON string)
+2. `GOOGLE_APPLICATION_CREDENTIALS` environment variable (file path)
+3. `~/.gtm-mcp/credentials.json` (setup by gtm-mcp-setup)
+4. `../Credential/*.json` (development)
+5. `./service-account.json`
+6. `./credentials.json`
+
+## Claude Skills
+
+The GTM Agent skills are automatically installed to `~/.claude/skills/gtm/` during installation.
+
+Skills include:
+- **SKILL.md**: Main workflow guide
+- **procedures.md**: Detailed procedures
+- **naming-convention.md**: Tag/Trigger/Variable naming rules
+- **validation.md**: ES5 and validation checklists
+- **event-types.md**: Type A/B/C event classification
 
 ## Development
 
 ```bash
+# Clone the repository
+git clone https://github.com/seong-won-yeong/gtmAgent.git
+cd gtmAgent/mcp-server
+
 # Install dependencies
 npm install
 
@@ -120,11 +158,6 @@ npm run dev
 npm start
 ```
 
-## Comparison with Stape MCP
+## License
 
-| Feature | Stape MCP | This MCP |
-|---------|-----------|----------|
-| Authentication | OAuth2 | Service Account |
-| Pagination | 20 items/page | No limit |
-| Hosting | Cloudflare Workers | Local (stdio) |
-| Full Export | Sample only | Complete data |
+MIT

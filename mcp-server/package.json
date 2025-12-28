@@ -1,16 +1,24 @@
 {
-  "name": "gtm-mcp-service-account",
+  "name": "gtm-mcp-server",
   "version": "1.0.0",
-  "description": "GTM MCP Server with Service Account Authentication - No pagination limits",
+  "description": "GTM MCP Server with Service Account Authentication and Claude Skills",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "gtm-mcp": "./dist/index.js"
+    "gtm-mcp": "./dist/index.js",
+    "gtm-mcp-setup": "./scripts/setup.js"
   },
+  "files": [
+    "dist",
+    "scripts",
+    "skills"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "postinstall": "node scripts/postinstall.js",
+    "setup": "node scripts/setup.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
@@ -24,5 +32,17 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seong-won-yeong/gtmAgent.git"
+  },
+  "keywords": [
+    "gtm",
+    "google-tag-manager",
+    "mcp",
+    "claude",
+    "anthropic"
+  ],
+  "license": "MIT"
 }
