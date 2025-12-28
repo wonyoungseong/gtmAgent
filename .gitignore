@@ -21,7 +21,8 @@ exports/
 # Reference folder (not needed)
 mcp-reference/
 
-# Note: CLAUDE.md is tracked by git for project instructions
+# CLAUDE.md - not needed (rules are in mcp-server/skills/gtm/SKILL.md)
+CLAUDE.md
 
 # Local Claude skills (use mcp-server/skills/ for distribution)
 .claude/
