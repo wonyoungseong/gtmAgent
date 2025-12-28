@@ -1,0 +1,41 @@
+{
+  "name": "gtm-mcp-server",
+  "version": "1.0.0",
+  "description": "GTM MCP Server with Service Account Authentication and Claude Skills",
+  "type": "module",
+  "main": "mcp-server/dist/index.js",
+  "bin": {
+    "gtm-mcp": "./mcp-server/dist/index.js",
+    "gtm-mcp-setup": "./mcp-server/scripts/setup.js"
+  },
+  "files": [
+    "mcp-server/dist",
+    "mcp-server/scripts",
+    "mcp-server/skills"
+  ],
+  "scripts": {
+    "postinstall": "node mcp-server/scripts/postinstall.js",
+    "build": "cd mcp-server && npm run build",
+    "start": "node mcp-server/dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "googleapis": "^144.0.0",
+    "zod": "^3.22.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wonyoungseong/gtmAgent.git"
+  },
+  "keywords": [
+    "gtm",
+    "google-tag-manager",
+    "mcp",
+    "claude",
+    "anthropic"
+  ],
+  "license": "MIT"
+}
