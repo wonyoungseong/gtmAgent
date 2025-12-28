@@ -248,7 +248,62 @@ async function setup() {
   showSuccess(validation);
 }
 
+/**
+ * Copy skills to Claude config folder
+ */
+function copySkills() {
+  var skillsSource = join(PROJECT_ROOT, "mcp-server", "skills", "gtm");
+  var skillsTarget = join(homedir(), ".claude", "skills", "gtm");
+  var skillsParent = join(homedir(), ".claude", "skills");
+
+  if (!existsSync(skillsSource)) {
+    log("Skills source not found, skipping");
+    return false;
+  }
+
+  // Create target directory
+  if (!existsSync(skillsParent)) {
+    mkdirSync(skillsParent, { recursive: true });
+  }
+
+  // Copy skills recursively
+  try {
+    copyFolderSync(skillsSource, skillsTarget);
+    log("Skills installed to: " + skillsTarget);
+    return true;
+  } catch (e) {
+    error("Failed to copy skills: " + e.message);
+    return false;
+  }
+}
+
+/**
+ * Recursively copy folder
+ */
+function copyFolderSync(src, dest) {
+  if (!existsSync(dest)) {
+    mkdirSync(dest, { recursive: true });
+  }
+
+  var entries = readdirSync(src, { withFileTypes: true });
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i];
+    var srcPath = join(src, entry.name);
+    var destPath = join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      copyFolderSync(srcPath, destPath);
+    } else {
+      copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 function showSuccess(validation) {
+  // Auto-copy skills
+  console.log("");
+  copySkills();
+
   console.log("");
   console.log("=".repeat(50));
   console.log("Setup complete!");
