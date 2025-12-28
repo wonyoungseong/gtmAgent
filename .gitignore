@@ -17,3 +17,6 @@ exports/
 
 # Local MCP config
 .mcp.json
+
+# Reference folder (not needed)
+mcp-reference/
