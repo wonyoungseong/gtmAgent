@@ -95,8 +95,8 @@ function openFilePicker() {
 
   try {
     if (os === "darwin") {
-      // macOS - use osascript
-      var script = 'osascript -e \'set theFile to choose file with prompt "Select Service Account JSON file" of type {"json"}\' -e \'POSIX path of theFile\'';
+      // macOS - use osascript (no type filter for better compatibility)
+      var script = 'osascript -e \'set theFile to choose file with prompt "Select Service Account JSON file (.json)"\' -e \'POSIX path of theFile\'';
       var result = execSync(script, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
       return result.trim();
     } else if (os === "win32") {
