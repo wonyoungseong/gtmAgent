@@ -38,22 +38,38 @@ Task({
 ## 사용자 요청
 ${userRequest}
 
-## 규칙
-1. 먼저 mcp-server/skills/gtm/SKILL.md를 읽어서 규칙과 워크플로우 파악
-2. Phase 0: 환경 선택 먼저 실행 (AskUserQuestion으로 4개 탭 한 번에)
-3. 적절한 Workflow 선택하여 실행
-4. GTM MCP 도구들 사용 (gtm_account, gtm_container, gtm_workspace, gtm_tag, gtm_trigger, gtm_variable 등)
-5. 생성/수정 전 반드시 사용자 승인
+## 🚨 최우선 규칙: AskUserQuestion 도구 사용 필수
+
+환경 선택 시 **절대로 텍스트 테이블을 출력하지 마세요!**
+반드시 **AskUserQuestion 도구**를 호출해야 합니다.
+
+❌ 금지 (텍스트 출력):
+| 옵션 | 계정명 | Account ID |
+|------|--------|------------|
+
+✅ 필수 (도구 호출):
+AskUserQuestion({
+  questions: [
+    { header: "Mode", question: "작업 모드 선택", options: [...], multiSelect: false },
+    { header: "Account", question: "계정 선택", options: [...], multiSelect: false },
+    { header: "Container", question: "컨테이너 선택", options: [...], multiSelect: false },
+    { header: "Workspace", question: "워크스페이스 선택", options: [...], multiSelect: false }
+  ]
+})
+
+## 워크플로우
+1. GTM MCP 도구로 데이터 수집 (gtm_account, gtm_container, gtm_workspace 병렬 호출)
+2. **AskUserQuestion 도구 호출**로 4개 탭 환경 선택 (텍스트 출력 금지!)
+3. 선택된 환경에서 작업 수행
+4. 생성/수정 전 사용자 승인
 
 ## MCP 도구 사용 규칙
 - list, get: 자유롭게 사용
 - create, update: 사용자 승인 후에만
 - remove, publish: 절대 금지
 
-## 필수 참조 파일
-- mcp-server/skills/gtm/SKILL.md (워크플로우, 규칙)
-- mcp-server/skills/gtm/resources/references/naming-convention.md (네이밍)
-- mcp-server/skills/gtm/resources/procedures.md (상세 절차)
+## 참조 파일
+- .claude/skills/gtm/SKILL.md (상세 워크플로우)
 `
 })
 ```
@@ -73,20 +89,14 @@ ${userRequest}
 Task({
   subagent_type: "general-purpose",
   description: "GTM start_test 태그 추가",
-  prompt: `
-# GTM Agent
-
-당신은 **GTM Agent**입니다. Google Tag Manager 전문 Sub-Agent로서 태그, 트리거, 변수를 관리합니다.
-
-## 사용자 요청
-start_test 태그를 추가해줘
-
-## 규칙
-먼저 mcp-server/skills/gtm/SKILL.md를 읽고 Add Event 워크플로우를 따르세요.
-...
-`
+  prompt: `위의 Sub-Agent Spawn 방법 참조`
 })
 ```
+
+### Sub-Agent가 해야 할 일
+1. gtm_account, gtm_container, gtm_workspace로 데이터 수집
+2. **AskUserQuestion 도구 호출** (텍스트 테이블 출력 금지!)
+3. 사용자 선택 후 태그 생성 진행
 
 ---
 
