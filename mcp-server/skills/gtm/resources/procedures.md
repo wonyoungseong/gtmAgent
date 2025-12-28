@@ -13,11 +13,62 @@
 
 ## Phase 0: 환경 선택
 
-### API 호출 (병렬)
-```
+> ⚠️ **핵심 원칙**: 모든 환경 선택을 **한 번의 AskUserQuestion**으로 처리
+
+### Step 1: 병렬 데이터 수집
+
+```javascript
+// 1. 계정 목록 조회
 gtm_account(action: "list")
-gtm_container(action: "list", accountId)
+
+// 2. 각 계정별 컨테이너 조회 (병렬)
+gtm_container(action: "list", accountId: "6262702160")
+gtm_container(action: "list", accountId: "6293242161")
+
+// 3. 주요 컨테이너별 워크스페이스 조회 (병렬)
 gtm_workspace(action: "list", accountId, containerId)
+```
+
+### Step 2: AskUserQuestion 한 번에 4개 질문
+
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      header: "Mode",
+      question: "작업 모드를 선택해주세요",
+      options: [
+        { label: "Edit (Recommended)", description: "태그/트리거/변수 생성 및 수정" },
+        { label: "Read", description: "조회만 (변경 없음)" }
+      ]
+    },
+    {
+      header: "Account",
+      question: "GTM 계정을 선택해주세요",
+      options: [
+        { label: "BETC", description: "ID: 6262702160 | 컨테이너 3개" },
+        { label: "serverSideTest", description: "ID: 6293242161 | 서버사이드" }
+      ]
+    },
+    {
+      header: "Container",
+      question: "컨테이너를 선택해주세요",
+      options: [
+        { label: "[EC]BETC_Web", description: "BETC | Web | GTM-56QPGJLB" },
+        { label: "[EC]BETC_VUE_WEB", description: "BETC | Web | GTM-W6W7LFTW" },
+        { label: "sgtm-betc.co.kr", description: "BETC | Server | GTM-5SM6WKJW" }
+      ]
+    },
+    {
+      header: "Workspace",
+      question: "워크스페이스를 선택해주세요",
+      options: [
+        { label: "Default Workspace", description: "기본 워크스페이스" },
+        { label: "새 워크스페이스 생성", description: "새로운 워크스페이스를 만듭니다" }
+      ]
+    }
+  ]
+})
 ```
 
 ### GTM 버전 판별
@@ -27,14 +78,17 @@ Workspace >= 4 → 360 확정
 Workspace <= 3 → 무료 추정
 ```
 
-### AskUserQuestion 형식
+### ❌ 잘못된 예시 (순차 질문)
 ```
-questions: [
-  { header: "Mode", options: [Single GTM, Multi GTM] },
-  { header: "Account", options: [계정 + 버전] },
-  { header: "Container", options: [컨테이너 + WS 개수] },
-  { header: "Workspace", options: [워크스페이스] }
-]
+1번째 질문: Account?  ← 비효율
+2번째 질문: Container?
+3번째 질문: Workspace?
+```
+
+### ✅ 올바른 예시 (한 번에)
+```
+AskUserQuestion 4개 탭:
+[Mode] [Account] [Container] [Workspace]
 ```
 
 ---

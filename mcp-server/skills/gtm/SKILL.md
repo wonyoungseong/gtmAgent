@@ -12,13 +12,23 @@ Phase 0: 환경 선택 → Phase 1: 이벤트 정보 → Phase 2: 트리거 → 
 ```
 
 ### Phase 0: 환경 선택
+
+**1. 병렬로 데이터 수집**
 ```
-AskUserQuestion 한 번에:
-- Mode: Single/Multi GTM
-- Account: 계정 선택
-- Container: 컨테이너 선택
-- Workspace: 워크스페이스 선택
+gtm_account(action: "list")
+gtm_container(action: "list", accountId) × N개
+gtm_workspace(action: "list", ...) × N개
 ```
+
+**2. AskUserQuestion 한 번에 4개 탭**
+```
+[Mode] Edit/Read
+[Account] BETC | serverSideTest | ...
+[Container] [EC]BETC_Web | [EC]BETC_VUE_WEB | ...
+[Workspace] Default Workspace | 새 워크스페이스 생성
+```
+
+> ⚠️ 한 번에 모든 환경을 선택받아야 함 (순차 질문 금지)
 
 ### Phase 1: 이벤트 정보 수집
 ```

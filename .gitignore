@@ -21,8 +21,7 @@ exports/
 # Reference folder (not needed)
 mcp-reference/
 
-# Claude Code project instructions (for development only)
-CLAUDE.md
+# Note: CLAUDE.md is tracked by git for project instructions
 
 # Local Claude skills (use mcp-server/skills/ for distribution)
 .claude/
