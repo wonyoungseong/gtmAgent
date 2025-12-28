@@ -23,8 +23,10 @@ mcp-reference/
 
 # CLAUDE.md is tracked - provides GTM Sub-Agent instructions
 
-# Local Claude skills (use mcp-server/skills/ for distribution)
-.claude/
+# Claude Code local config (ignore most, track skills/commands)
+.claude/*
+!.claude/skills/
+!.claude/commands/
 
 # Separate tools (not part of MCP)
 tools/
