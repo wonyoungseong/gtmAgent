@@ -1,0 +1,28 @@
+{
+  "name": "gtm-mcp-service-account",
+  "version": "1.0.0",
+  "description": "GTM MCP Server with Service Account Authentication - No pagination limits",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "gtm-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "googleapis": "^144.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "tsx": "^4.7.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
