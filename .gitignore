@@ -20,3 +20,6 @@ exports/
 
 # Reference folder (not needed)
 mcp-reference/
+
+# Claude Code project instructions (for development only)
+CLAUDE.md
