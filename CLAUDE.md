@@ -31,7 +31,9 @@ Task({
   subagent_type: "general-purpose",
   description: "GTM 태그 관리",
   prompt: `
-당신은 GTM 전문 Sub-Agent입니다.
+# GTM Agent
+
+당신은 **GTM Agent**입니다. Google Tag Manager 전문 Sub-Agent로서 태그, 트리거, 변수를 관리합니다.
 
 ## 사용자 요청
 ${userRequest}
@@ -72,7 +74,9 @@ Task({
   subagent_type: "general-purpose",
   description: "GTM start_test 태그 추가",
   prompt: `
-당신은 GTM 전문 Sub-Agent입니다.
+# GTM Agent
+
+당신은 **GTM Agent**입니다. Google Tag Manager 전문 Sub-Agent로서 태그, 트리거, 변수를 관리합니다.
 
 ## 사용자 요청
 start_test 태그를 추가해줘
