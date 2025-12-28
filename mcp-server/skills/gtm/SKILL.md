@@ -1,6 +1,7 @@
 ---
 name: gtm
 description: GTM 컨테이너 관리. 분석, 이벤트 추가, 검증, 디버깅, 내보내기, 다중 컨테이너 작업.
+user-invokable: true
 ---
 
 # GTM Agent
