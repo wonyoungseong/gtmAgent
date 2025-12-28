@@ -21,8 +21,7 @@ exports/
 # Reference folder (not needed)
 mcp-reference/
 
-# CLAUDE.md - not needed (rules are in mcp-server/skills/gtm/SKILL.md)
-CLAUDE.md
+# CLAUDE.md is tracked - provides GTM Sub-Agent instructions
 
 # Local Claude skills (use mcp-server/skills/ for distribution)
 .claude/
