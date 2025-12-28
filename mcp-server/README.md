@@ -14,7 +14,7 @@ Google Tag Manager MCP Server with Service Account authentication and Claude Ski
 
 ```bash
 # Install from GitHub
-npm install -g github:seong-won-yeong/gtmAgent
+npm install -g github:wonyoungseong/gtmAgent
 
 # Setup credentials
 gtm-mcp-setup
@@ -142,7 +142,7 @@ Skills include:
 
 ```bash
 # Clone the repository
-git clone https://github.com/seong-won-yeong/gtmAgent.git
+git clone https://github.com/wonyoungseong/gtmAgent.git
 cd gtmAgent/mcp-server
 
 # Install dependencies
