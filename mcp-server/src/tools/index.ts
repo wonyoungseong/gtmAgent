@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { getTagManagerClient, createErrorResponse, log } from "../utils/index.js";
+import { processVersionData, DEFAULT_PAGE_SIZE } from "../utils/pagination.js";
 
 // Tool definitions
 const tools = [
@@ -74,7 +74,7 @@ const tools = [
   },
   {
     name: "gtm_version",
-    description: "Get GTM container versions. Returns FULL data without pagination limits. Actions: 'live' to get live version, 'get' to get a specific version, 'list' to list version headers.",
+    description: `Get GTM container versions with pagination. Actions: 'live' to get live version, 'get' to get a specific version, 'list' to list version headers. Use 'resourceType' to paginate specific resources (${DEFAULT_PAGE_SIZE} items/page). For full export without pagination, use gtm_export_full instead.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -94,6 +94,19 @@ const tools = [
         containerVersionId: {
           type: "string",
           description: "The version ID (required for 'get' action)",
+        },
+        resourceType: {
+          type: "string",
+          enum: ["tag", "trigger", "variable", "folder", "builtInVariable", "zone", "customTemplate", "client", "gtagConfig", "transformation"],
+          description: "Specific resource type to paginate. If not specified, returns summary only.",
+        },
+        page: {
+          type: "number",
+          description: `Page number (default: 1). Each page contains up to ${DEFAULT_PAGE_SIZE} items.`,
+        },
+        itemsPerPage: {
+          type: "number",
+          description: `Items per page (default: ${DEFAULT_PAGE_SIZE}, max: 50)`,
         },
       },
       required: ["action", "accountId", "containerId"],
@@ -194,7 +207,7 @@ const tools = [
   },
   {
     name: "gtm_export_full",
-    description: "Export complete GTM container version data as JSON. Returns the full container version without any pagination or truncation.",
+    description: "Export COMPLETE GTM container version data as JSON. Returns the FULL container version WITHOUT any pagination or truncation. Use this when you need all data at once.",
     inputSchema: {
       type: "object",
       properties: {
@@ -306,22 +319,41 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         const action = args.action as string;
         const accountId = args.accountId as string;
         const containerId = args.containerId as string;
+        const resourceType = args.resourceType as string | undefined;
+        const page = (args.page as number) || 1;
+        const itemsPerPage = Math.min((args.itemsPerPage as number) || DEFAULT_PAGE_SIZE, 50);
 
         if (action === "live") {
-          // Return FULL live version data - no pagination!
           const response = await tagmanager.accounts.containers.versions.live({
             parent: `accounts/${accountId}/containers/${containerId}`,
           });
+
+          // Apply pagination
+          const processedData = processVersionData(
+            response.data as Record<string, unknown>,
+            resourceType,
+            page,
+            itemsPerPage
+          );
+
           return {
-            content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }],
+            content: [{ type: "text", text: JSON.stringify(processedData, null, 2) }],
           };
         } else if (action === "get") {
-          // Return FULL version data - no pagination!
           const response = await tagmanager.accounts.containers.versions.get({
             path: `accounts/${accountId}/containers/${containerId}/versions/${args.containerVersionId}`,
           });
+
+          // Apply pagination
+          const processedData = processVersionData(
+            response.data as Record<string, unknown>,
+            resourceType,
+            page,
+            itemsPerPage
+          );
+
           return {
-            content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }],
+            content: [{ type: "text", text: JSON.stringify(processedData, null, 2) }],
           };
         } else if (action === "list") {
           const response = await tagmanager.accounts.containers.version_headers.list({
@@ -407,6 +439,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       }
 
       case "gtm_export_full": {
+        // NO PAGINATION - Returns complete data
         const accountId = args.accountId as string;
         const containerId = args.containerId as string;
         const versionType = args.versionType as string;
@@ -424,7 +457,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
           versionData = response.data;
         }
 
-        // Return complete export with summary
+        // Return FULL data with summary
         const summary = {
           containerVersionId: versionData.containerVersionId,
           name: versionData.name,
