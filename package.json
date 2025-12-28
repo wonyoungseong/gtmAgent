@@ -14,7 +14,6 @@
     "mcp-server/skills"
   ],
   "scripts": {
-    "postinstall": "node mcp-server/scripts/postinstall.js || true",
     "build": "cd mcp-server && npm run build",
     "start": "node mcp-server/dist/index.js",
     "setup": "node mcp-server/scripts/setup.js"

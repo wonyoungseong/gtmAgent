@@ -129,7 +129,12 @@ gtm_tag(action: "create", accountId: "123", containerId: "456", workspaceId: "78
 
 ## Claude Skills
 
-The GTM Agent skills are automatically installed to `~/.claude/skills/gtm/` during installation.
+To install the GTM Agent skills, manually copy the skills folder:
+
+```bash
+# After installation, copy skills to Claude config
+cp -r $(npm root -g)/gtm-mcp-server/mcp-server/skills/gtm ~/.claude/skills/
+```
 
 Skills include:
 - **SKILL.md**: Main workflow guide

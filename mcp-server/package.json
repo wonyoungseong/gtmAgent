@@ -17,7 +17,6 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "postinstall": "node scripts/postinstall.js",
     "setup": "node scripts/setup.js"
   },
   "dependencies": {
