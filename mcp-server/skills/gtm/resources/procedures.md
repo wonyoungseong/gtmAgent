@@ -4,32 +4,26 @@
 
 | 문서 | 내용 |
 |------|------|
-| [naming-convention.md](./references/naming-convention.md) | 태그/트리거/변수 네이밍 |
-| [event-types.md](./references/event-types.md) | Type A/B/C 분류 |
-| [validation.md](./references/validation.md) | ES5, 검증 체크리스트 |
-| [duplicate-check.md](./references/duplicate-check.md) | 3-Layer 중복 체크 |
+| [naming-convention.md](references/naming-convention.md) | 태그/트리거/변수 네이밍 |
+| [event-types.md](references/event-types.md) | Type A/B/C 분류 |
+| [validation.md](references/validation.md) | ES5, 검증 체크리스트 |
+| [duplicate-check.md](references/duplicate-check.md) | 3-Layer 중복 체크 |
 
 ---
 
-## Phase 0: 환경 선택
+## Phase 0: 환경 선택 (모든 워크플로우 공통)
 
-> ⚠️ **핵심 원칙**: 모든 환경 선택을 **한 번의 AskUserQuestion**으로 처리
+> ⚠️ **메인 Claude가 처리** (Sub-Agent는 AskUserQuestion 사용 불가)
 
-### Step 1: 병렬 데이터 수집
+### Step 1: 데이터 수집 (병렬)
 
 ```javascript
-// 1. 계정 목록 조회
-gtm_account(action: "list")
-
-// 2. 각 계정별 컨테이너 조회 (병렬)
-gtm_container(action: "list", accountId: "6262702160")
-gtm_container(action: "list", accountId: "6293242161")
-
-// 3. 주요 컨테이너별 워크스페이스 조회 (병렬)
-gtm_workspace(action: "list", accountId, containerId)
+mcp__gtm__gtm_account({ action: "list" })
+mcp__gtm__gtm_container({ action: "list", accountId: "..." })
+mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 ```
 
-### Step 2: AskUserQuestion 한 번에 4개 질문
+### Step 2: AskUserQuestion 도구 호출 (4개 탭)
 
 ```javascript
 AskUserQuestion({
@@ -38,116 +32,207 @@ AskUserQuestion({
       header: "Mode",
       question: "작업 모드를 선택해주세요",
       options: [
-        { label: "Edit (Recommended)", description: "태그/트리거/변수 생성 및 수정" },
-        { label: "Read", description: "조회만 (변경 없음)" }
-      ]
+        { label: "Edit (Recommended)", description: "생성 및 수정" },
+        { label: "Read", description: "조회만" }
+      ],
+      multiSelect: false
     },
     {
       header: "Account",
       question: "GTM 계정을 선택해주세요",
-      options: [
-        { label: "BETC", description: "ID: 6262702160 | 컨테이너 3개" },
-        { label: "serverSideTest", description: "ID: 6293242161 | 서버사이드" }
-      ]
+      options: [/* 조회된 계정 목록 */],
+      multiSelect: false
     },
     {
       header: "Container",
       question: "컨테이너를 선택해주세요",
-      options: [
-        { label: "[EC]BETC_Web", description: "BETC | Web | GTM-56QPGJLB" },
-        { label: "[EC]BETC_VUE_WEB", description: "BETC | Web | GTM-W6W7LFTW" },
-        { label: "sgtm-betc.co.kr", description: "BETC | Server | GTM-5SM6WKJW" }
-      ]
+      options: [/* 조회된 컨테이너 목록 */],
+      multiSelect: false
     },
     {
       header: "Workspace",
       question: "워크스페이스를 선택해주세요",
+      options: [/* 조회된 워크스페이스 목록 */],
+      multiSelect: false
+    }
+  ]
+})
+```
+
+> 🚨 텍스트 테이블 출력 금지! 반드시 AskUserQuestion 도구 호출
+
+---
+
+## Add Event (태그 추가)
+
+### Phase 1: GTM 패턴 분석
+
+> 🚨 **추측 금지!** GTM에서 실제 패턴 추출
+
+```javascript
+// 1. 기존 GA4 태그 조회
+gtm_tag(action: "list", accountId, containerId, workspaceId)
+
+// 2. 태그명에서 event_category 추출
+// "GA4 - Start Diagnosis - Popup" → category: "Start Diagnosis"
+// "GA4 - Ecommerce - Purchase" → category: "Ecommerce"
+
+// 3. parameter에서 event_category 값 확인
+// parameter.key === "event_category" → 값 또는 변수({{...}})
+
+// 4. 트리거에서 event_name 추출
+gtm_trigger(action: "list", ...)
+// customEventFilter에서 기존 event_name 수집
+```
+
+**패턴 추출 결과 예시:**
+```
+발견된 category: Start Diagnosis(15), Ecommerce(8), Basic Event(5)
+발견된 event_name: purchase, view_item, start_camera
+```
+
+### Phase 2: 이벤트 정보 수집
+
+GTM에서 추출한 패턴을 옵션으로 제공:
+
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      header: "Category",
+      question: "event_category 선택 (기존 패턴 기반)",
       options: [
-        { label: "Default Workspace", description: "기본 워크스페이스" },
-        { label: "새 워크스페이스 생성", description: "새로운 워크스페이스를 만듭니다" }
+        { label: "Start Diagnosis", description: "15개 태그에서 사용" },
+        { label: "Ecommerce", description: "8개 태그에서 사용" },
+        { label: "새 카테고리", description: "직접 입력" }
       ]
     }
   ]
 })
 ```
 
-### GTM 버전 판별
-```
-supportApprovals: true → 360 확정
-Workspace >= 4 → 360 확정
-Workspace <= 3 → 무료 추정
+### Phase 3: 트리거 확인
+
+```javascript
+gtm_trigger(action: "list", ...)
+// event_name 일치하는 트리거 있으면 사용
+// 없으면 생성: CE - {event_name}
 ```
 
-### ❌ 잘못된 예시 (순차 질문)
-```
-1번째 질문: Account?  ← 비효율
-2번째 질문: Container?
-3번째 질문: Workspace?
+### Phase 4: 태그 설정
+
+```javascript
+// GA4 Measurement ID 확인
+gtm_tag(action: "list", ...)
+// type: "gaawc" 태그에서 measurementId 추출
 ```
 
-### ✅ 올바른 예시 (한 번에)
-```
-AskUserQuestion 4개 탭:
-[Mode] [Account] [Container] [Workspace]
+### Phase 5: 생성
+
+```javascript
+// 1. 3-Layer 중복 체크
+gtm_tag(action: "list")      // 태그명
+gtm_trigger(action: "list")  // 트리거명
+gtm_variable(action: "list") // 변수명
+
+// 2. 사용자 승인
+
+// 3. 순서대로 생성
+gtm_variable(action: "create", ...)  // 변수 (필요시)
+gtm_trigger(action: "create", ...)   // 트리거
+gtm_tag(action: "create", ...)       // 태그
 ```
 
 ---
 
-## Phase 1: 이벤트 정보
+## Analyze (분석)
 
-### 필수 수집
-```
-- event_name: 트리거 customEvent + 태그 eventName
-- event_category: 태그명 첫 부분
-- event_action: 태그명 두번째 부분
-```
-
-### 태그 네이밍 결정
-```
-1. event_category string → 해당 값 사용
-2. event_category 변수 → 사용자 문의
-3. 미설정 → Basic Event/Ecommerce 확인 → 없으면 문의
+### Quick
+```javascript
+gtm_tag(action: "list", page: 1)
+gtm_trigger(action: "list", page: 1)
+gtm_variable(action: "list", page: 1)
+// 요약: 수량, 패턴
 ```
 
-**상세**: [naming-convention.md](./references/naming-convention.md)
+### Full
+```javascript
+// 전체 페이지 순회
+// 분석: 네이밍, 폴더, 미사용, 중복
+```
+
+### Live
+```javascript
+gtm_version(action: "live", accountId, containerId)
+```
 
 ---
 
-## Other Procedures
+## Search (검색)
 
-### Analyze
-| 모드 | 용도 |
+```javascript
+gtm_tag(action: "list")      // name 필터
+gtm_trigger(action: "list")  // customEventFilter 검색
+gtm_variable(action: "list")
+```
+
+---
+
+## Update (수정)
+
+```javascript
+// 1. 조회
+gtm_tag(action: "get", tagId)
+
+// 2. 사용자 승인
+
+// 3. 수정
+gtm_tag(action: "update", tagId, fingerprint, createOrUpdateConfig)
+```
+
+---
+
+## Validate (검증)
+
+```javascript
+// Naming: "GA4 - {category} - {action}" 패턴
+// Unused: 사용 안되는 트리거/변수
+// ES5: var, function(){} 사용 확인
+```
+
+---
+
+## Export (내보내기)
+
+```javascript
+gtm_export_full({
+  accountId,
+  containerId,
+  versionType: "live" | "workspace" | "specific"
+})
+```
+
+---
+
+## Naming Conventions
+
+### Tag
+| 유형 | 패턴 |
 |------|------|
-| Quick | 패턴 감지 (page 1만) |
-| Full | 전체 분석 + 인벤토리 |
+| Basic | `GA4 - Basic Event - {Name}` |
+| Ecommerce | `GA4 - Ecommerce - {Name}` |
+| Business | `GA4 - {category} - {action}` |
 
-### Validate
-```
-Naming, References, Unused, Duplicates 검사
-```
-
-### Debug
-```
-이벤트명 → 트리거 → 태그 → 변수 추적
-```
-
-### Export
-| 옵션 | 출력 |
+### Trigger
+| 타입 | 패턴 |
 |------|------|
-| json | 구조화된 JSON |
-| spec | DataLayer 스펙 |
-| checklist | 개발팀용 체크리스트 |
+| Custom Event | `CE - {Event}` |
+| Page View | `PV - {Desc}` |
+| Click | `CL - {Desc}` |
 
----
-
-## Helper
-
-### URL 파싱
-```
-accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}
-```
-
-### 이벤트명 정규화
-```python
-name.lower().replace(" ", "_").replace("-", "_")
-```
+### Variable
+| 타입 | 패턴 |
+|------|------|
+| Data Layer | `DL - {Name}` |
+| JavaScript | `JS - {Name}` |
+| Constant | `CONST - {Name}` |
