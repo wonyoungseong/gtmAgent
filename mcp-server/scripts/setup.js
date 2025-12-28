@@ -90,6 +90,9 @@ async function setup() {
     process.exit(1);
   }
 
+  // Remove surrounding quotes (from drag-and-drop or copy-paste)
+  inputPath = inputPath.replace(/^['"]|['"]$/g, "");
+
   // Resolve path
   var sourcePath = isAbsolute(inputPath) ? inputPath : resolve(process.cwd(), inputPath);
 
