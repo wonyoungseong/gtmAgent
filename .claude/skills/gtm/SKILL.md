@@ -354,34 +354,94 @@ AskUserQuestion({
 
 ## Workflow 1: Add Event (태그 추가)
 
-### Phase 1: 이벤트 정보 수집
+> 🚨 **필수**: 추측하지 말고 GTM에서 실제 패턴을 추출하세요!
+
+### Phase 1: GTM 패턴 분석 (PATTERNS FROM GTM)
+
 ```javascript
+// 1. 기존 GA4 태그 조회
+gtm_tag(action: "list", accountId, containerId, workspaceId)
+
+// 2. 태그명에서 event_category 패턴 추출
+// 예: "GA4 - Start Diagnosis - Popup Impressions" → category: "Start Diagnosis"
+// 예: "GA4 - Ecommerce - Purchase" → category: "Ecommerce"
+// 예: "GA4 - Basic Event - Page View" → category: "Basic Event"
+
+// 3. GA4 태그의 parameter에서 event_category 값 추출
+// parameter.key === "event_category" 찾기
+// parameter.value가 변수({{...}})인지 문자열인지 확인
+
+// 4. 트리거에서 event_name 패턴 추출
+gtm_trigger(action: "list", accountId, containerId, workspaceId)
+// customEventFilter에서 기존 event_name 목록 수집
+```
+
+**패턴 추출 결과 예시:**
+```
+발견된 event_category:
+- Start Diagnosis (15개 태그)
+- Ecommerce (8개 태그)
+- Basic Event (5개 태그)
+- ETC (3개 태그)
+
+발견된 event_name:
+- purchase, view_item, add_to_cart (Ecommerce)
+- start_camera, popup_impression (Start Diagnosis)
+```
+
+### Phase 2: 이벤트 정보 수집 (실제 데이터 기반)
+
+```javascript
+// GTM에서 추출한 실제 패턴을 옵션으로 제공
 AskUserQuestion({
   questions: [
-    { header: "Event", question: "event_name?", options: [기존이벤트들, "직접 입력"] },
-    { header: "Category", question: "event_category?", options: [...] },
-    { header: "Action", question: "event_action?", options: [...] }
+    {
+      header: "Category",
+      question: "event_category를 선택해주세요 (기존 패턴 기반)",
+      options: [
+        { label: "Start Diagnosis", description: "15개 태그에서 사용 중" },
+        { label: "Ecommerce", description: "8개 태그에서 사용 중" },
+        { label: "Basic Event", description: "5개 태그에서 사용 중" },
+        { label: "새 카테고리 입력", description: "직접 입력" }
+      ],
+      multiSelect: false
+    },
+    {
+      header: "Action",
+      question: "event_action을 입력해주세요",
+      options: [
+        { label: "사용자 요청값 사용", description: "start_gtm_test" },
+        { label: "직접 입력", description: "다른 값 입력" }
+      ],
+      multiSelect: false
+    }
   ]
 })
 ```
 
-### Phase 2: 트리거 확인/생성
+### Phase 3: 트리거 확인/생성
+
 ```javascript
 // 기존 트리거 검색
 gtm_trigger(action: "list", accountId, containerId, workspaceId)
 
 // event_name과 일치하는 트리거 있으면 사용
-// 없으면 생성 제안 (Type A: Custom Event, Type B: Page View, Type C: Click)
+// 없으면 생성 제안:
+// - Type A: Custom Event (customEventFilter)
+// - Type B: Page View
+// - Type C: Click
 ```
 
-### Phase 3: 태그 설정
+### Phase 4: 태그 설정
+
 ```javascript
-// GA4 Measurement ID 확인 (기존 태그에서 추출)
+// GA4 Measurement ID 확인 (기존 GA4 Config 태그에서 추출)
 gtm_tag(action: "list", ...)
-// 또는 사용자에게 문의
+// type: "gaawc" (GA4 Configuration) 태그에서 measurementId 찾기
 ```
 
-### Phase 4: 생성
+### Phase 5: 생성
+
 ```javascript
 // 1. 3-Layer 중복 체크
 gtm_tag(action: "list")      // 태그명 중복
@@ -389,10 +449,12 @@ gtm_trigger(action: "list")  // 트리거명 중복
 gtm_variable(action: "list") // 변수명 중복
 
 // 2. 사용자 승인 (생성할 내용 표시)
-AskUserQuestion({ header: "승인", options: ["생성", "취소", "수정"] })
+// - 태그명: GA4 - {category} - {action}
+// - 트리거명: CE - {event_name}
+// - 파라미터: event_category, event_action 등
 
 // 3. 순서대로 생성 (의존성 고려)
-gtm_variable(action: "create", ...)  // 변수 먼저
+gtm_variable(action: "create", ...)  // 변수 먼저 (필요시)
 gtm_trigger(action: "create", ...)   // 트리거
 gtm_tag(action: "create", ...)       // 태그 (트리거 참조)
 ```
