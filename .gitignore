@@ -23,3 +23,6 @@ mcp-reference/
 
 # Claude Code project instructions (for development only)
 CLAUDE.md
+
+# Local Claude skills (use mcp-server/skills/ for distribution)
+.claude/
