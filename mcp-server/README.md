@@ -13,8 +13,14 @@ Google Tag Manager MCP Server with Service Account authentication and Claude Ski
 ## Quick Install
 
 ```bash
-# Install from GitHub
-npm install -g github:wonyoungseong/gtmAgent
+# Clone and install
+git clone https://github.com/wonyoungseong/gtmAgent.git
+cd gtmAgent
+npm install
+npm link
+
+# Copy skills to Claude
+cp -r mcp-server/skills/gtm ~/.claude/skills/
 
 # Setup credentials
 gtm-mcp-setup
@@ -129,11 +135,11 @@ gtm_tag(action: "create", accountId: "123", containerId: "456", workspaceId: "78
 
 ## Claude Skills
 
-To install the GTM Agent skills, manually copy the skills folder:
+Skills are copied during the Quick Install process. If you need to update them:
 
 ```bash
-# After installation, copy skills to Claude config
-cp -r $(npm root -g)/gtm-mcp-server/mcp-server/skills/gtm ~/.claude/skills/
+# From the gtmAgent directory
+cp -r mcp-server/skills/gtm ~/.claude/skills/
 ```
 
 Skills include:
