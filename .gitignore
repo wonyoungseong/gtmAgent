@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Auth files (sensitive)
+credentials.json
+token.json
+
+# OS files
+.DS_Store
+
+# Exports (large files)
+exports/
+
+# PDF documents
+*.pdf

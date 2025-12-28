@@ -1,0 +1,15 @@
+{
+  "name": "gtm-export",
+  "version": "1.0.0",
+  "description": "GTM Container Export CLI - Full JSON export via Google Tag Manager API",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "export": "node index.js",
+    "auth": "node auth.js"
+  },
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "open": "^10.1.0"
+  }
+}
