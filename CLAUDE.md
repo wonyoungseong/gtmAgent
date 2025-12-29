@@ -86,8 +86,21 @@ if (selectedWorkspace === "새 Workspace 생성") {
     containerId,
     createOrUpdateConfig: {
       name: workspaceName,  // 예: "Add start_camera"
-      description: "{event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}"
-      // 예: "start_camera 이벤트 추가 | GTM Agent | 카메라 시작 추적 | 2024-12-28"
+      description: `{event_name} 이벤트 추가 | GTM Agent | {날짜}
+
+목표: {이벤트의 목적 - 태그명에서 보이지 않는 비즈니스 목적}
+상세:
+- 태그: GA4 - {Category} - {Action}
+- 트리거: CE - {Event Name}
+- Parameters: event_category, event_action`
+      // 예:
+      // "start_camera 이벤트 추가 | GTM Agent | 2024-12-28
+      //
+      // 목표: 사용자가 카메라 기능을 시작할 때 추적하여 기능 사용률 분석
+      // 상세:
+      // - 태그: GA4 - ETC - Start Camera
+      // - 트리거: CE - Start Camera
+      // - Parameters: event_category, event_action"
     }
   })
 }

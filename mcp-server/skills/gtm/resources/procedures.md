@@ -309,8 +309,13 @@ gtm_tag(action: "create", ...)       // 태그
 // 4. 워크스페이스 description 업데이트 (생성 내역 기록)
 gtm_workspace(action: "get", workspaceId)  // 현재 fingerprint 조회
 gtm_workspace(action: "update", workspaceId, fingerprint, {
-  description: "{event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}"
-  // 예: "start_camera 이벤트 추가 | GTM Agent | 카메라 시작 추적 | 2024-12-28"
+  description: `{event_name} 이벤트 추가 | GTM Agent | {날짜}
+
+목표: {이벤트의 목적 - 태그명에서 보이지 않는 비즈니스 목적}
+상세:
+- 태그: GA4 - {Category} - {Action}
+- 트리거: CE - {Event Name}
+- Parameters: event_category, event_action`
 })
 ```
 

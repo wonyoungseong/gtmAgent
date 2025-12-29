@@ -134,11 +134,24 @@ dataLayer.push({ event: '{event_name}' });
    - 3개 도달: 기존 선택만 (삭제는 GTM UI에서)
 
 이름: [작업유형] {event_name}
-설명: {event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}
+설명:
+  {event_name} 이벤트 추가 | GTM Agent | {날짜}
+
+  목표: {비즈니스 목적}
+  상세:
+  - 태그: GA4 - {Category} - {Action}
+  - 트리거: CE - {Event Name}
+  - Parameters: event_category, event_action
 
 예시:
 이름: "Add start_camera"
-설명: "start_camera 이벤트 추가 | GTM Agent | 카메라 시작 추적 | 2024-12-28"
+설명: "start_camera 이벤트 추가 | GTM Agent | 2024-12-28
+
+       목표: 카메라 기능 시작 시 추적하여 사용률 분석
+       상세:
+       - 태그: GA4 - ETC - Start Camera
+       - 트리거: CE - Start Camera
+       - Parameters: event_category, event_action"
 
 작업유형: Add, Fix, Update, Remove, Refactor
 ```
