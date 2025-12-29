@@ -20,8 +20,24 @@ gtm_container({ action: "list", accountId: "..." })
 1-2. Workspace 선택 (Container 선택 후)
 ```javascript
 gtm_workspace({ action: "list", accountId, containerId })
-// 무료 계정: 최대 3개 제한
-// → AskUserQuestion으로 선택 받기
+
+// 워크스페이스 개수에 따른 분기 처리
+if (workspaces.length < 3) {
+  // 3개 미만: "새 Workspace 생성" 옵션 포함
+  AskUserQuestion({
+    question: "워크스페이스를 선택해주세요",
+    options: [
+      ...existingWorkspaces,
+      { label: "새 Workspace 생성", description: "새로운 워크스페이스 생성" }
+    ]
+  })
+} else {
+  // 3개 제한 도달: 경고 메시지 + 기존 워크스페이스만 표시
+  AskUserQuestion({
+    question: "⚠️ 워크스페이스 제한(3개) 도달. 기존 워크스페이스를 선택하세요.",
+    options: [...existingWorkspaces]  // 생성 옵션 없음
+  })
+}
 ```
 </step>
 
