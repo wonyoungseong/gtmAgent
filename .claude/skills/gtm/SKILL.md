@@ -129,6 +129,10 @@ dataLayer.push({ event: '{event_name}' });
 ## Workspace 네이밍 (핵심 요약)
 
 ```
+⚠️ 무료 계정: 최대 3개 제한
+   - 3개 미만: "새 Workspace 생성" 옵션 제공
+   - 3개 도달: 기존 선택만 (삭제는 GTM UI에서)
+
 이름: [작업유형] {event_name}
 설명: {event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}
 

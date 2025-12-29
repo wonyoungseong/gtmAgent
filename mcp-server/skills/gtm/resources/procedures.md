@@ -37,20 +37,36 @@ AskUserQuestion({
 // Container 선택 후 → Workspace 조회
 mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 
-// Step 2-2: Workspace 선택
-AskUserQuestion({
-  questions: [
-    {
+// Step 2-2: Workspace 선택 (⚠️ 3개 제한 확인 필수)
+const workspaceCount = workspaces.length;
+
+if (workspaceCount < 3) {
+  // 3개 미만: 생성 옵션 포함
+  AskUserQuestion({
+    questions: [{
       header: "Workspace",
       question: "워크스페이스를 선택해주세요",
       options: [
-        // 기존 Workspace 목록 + 항상 마지막에 "새 Workspace 생성" 추가
+        // 기존 Workspace 목록 +
         { label: "새 Workspace 생성", description: "새로운 워크스페이스 생성" }
       ],
       multiSelect: false
-    }
-  ]
-})
+    }]
+  })
+} else {
+  // 🚨 3개 제한 도달: 생성 옵션 없이 기존만 표시
+  AskUserQuestion({
+    questions: [{
+      header: "Workspace",
+      question: "⚠️ 워크스페이스 제한(3개) 도달. 기존 워크스페이스를 선택하세요",
+      options: [
+        // 기존 Workspace 목록만 (생성 옵션 없음)
+        // 삭제 필요 시: GTM UI에서 직접 삭제 안내
+      ],
+      multiSelect: false
+    }]
+  })
+}
 
 // "새 Workspace 생성" 선택 시 → 이름 입력 → gtm_workspace(action: "create")
 ```
