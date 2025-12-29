@@ -310,7 +310,7 @@ gtm_tag(action: "create", ...)       // 태그
 gtm_workspace(action: "get", workspaceId)  // 현재 fingerprint 조회
 gtm_workspace(action: "update", workspaceId, fingerprint, {
   description: "{event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}"
-  // 또는 누적: 기존 description + 새 항목 추가
+  // 예: "start_camera 이벤트 추가 | GTM Agent | 카메라 시작 추적 | 2024-12-28"
 })
 ```
 

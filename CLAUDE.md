@@ -85,14 +85,9 @@ if (selectedWorkspace === "새 Workspace 생성") {
     accountId,
     containerId,
     createOrUpdateConfig: {
-      name: workspaceName,  // 예: "Add start_test_gtm"
-      description: `{event_name} 이벤트 추가 | GTM Agent | {목적/세부내용} | {날짜}
-
-목표: {이벤트의 목적}
-세부 내용:
-- 태그: GA4 - {category} - {action}
-- 트리거: {trigger_type} - {event_name}
-- Parameters: event_category, event_action, event_label`
+      name: workspaceName,  // 예: "Add start_camera"
+      description: "{event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}"
+      // 예: "start_camera 이벤트 추가 | GTM Agent | 카메라 시작 추적 | 2024-12-28"
     }
   })
 }
@@ -257,15 +252,14 @@ Task({
 ## 작업 지시
 위 정보로 태그를 생성하세요.
 - 태그명: GA4 - ETC - Start Test Gtm (Title Case, 약자는 대문자)
-- 트리거명: CE - start_test_gtm
+- 트리거명: CE - Start Test Gtm (Title Case, 약자는 대문자)
 - **사용자에게 추가 질문하지 말 것!**
 - 생성 전 사용자 승인만 받을 것
 
-## ⚠️ 약자 규칙 (필수)
-약자는 태그명에서 대문자 유지:
-- etc → ETC, api → API, cta → CTA
-- ui → UI, url → URL, id → ID
-- seo → SEO, bts → BTS, ga4 → GA4
+## ⚠️ 네이밍 규칙 (필수)
+태그명, 트리거명 모두 Title Case + 약자 대문자:
+- snake_case → Title Case: start_test_gtm → Start Test Gtm
+- 약자는 대문자: etc → ETC, api → API, cta → CTA, ui → UI
 
 ## 출력 요구사항
 생성 완료 후 반드시 다음 정보를 **상세하게** 출력:
