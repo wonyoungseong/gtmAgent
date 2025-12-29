@@ -82,21 +82,49 @@ gtm_trigger(action: "list", ...)
 발견된 event_name: purchase, view_item, start_camera
 ```
 
-### Phase 2: 이벤트 정보 수집
-
-GTM에서 추출한 패턴을 옵션으로 제공:
+### Phase 2: 이벤트 자동 분류 및 정보 수집
 
 ```javascript
+// 1. event_name 기반 자동 분류
+const BASIC_EVENTS = ["page_view", "session_start", "first_visit", "scroll", "click", "file_download"]
+const ECOMMERCE_EVENTS = ["purchase", "view_item", "add_to_cart", "remove_from_cart", "begin_checkout", "view_item_list", "select_item", "add_payment_info", "add_shipping_info", "refund"]
+
+// 자동 분류 결과:
+// - Basic Event: page_view, session_start 등
+// - Ecommerce: purchase, view_item 등
+// - Custom: 그 외 → GTM 패턴에서 category 추출
+
+// 2. AskUserQuestion (Category + Action + Trigger 한번에)
 AskUserQuestion({
   questions: [
     {
       header: "Category",
-      question: "event_category 선택 (기존 패턴 기반)",
+      question: "event_category를 확인해주세요",
       options: [
-        { label: "Start Diagnosis", description: "15개 태그에서 사용" },
-        { label: "Ecommerce", description: "8개 태그에서 사용" },
-        { label: "새 카테고리", description: "직접 입력" }
-      ]
+        { label: "자동 분류된 카테고리", description: "(Recommended)" },
+        { label: "GTM 패턴 1", description: "기존 태그에서 추출" },
+        { label: "직접 입력", description: "Other" }
+      ],
+      multiSelect: false
+    },
+    {
+      header: "Action",
+      question: "event_action을 확인해주세요",
+      options: [
+        { label: "event_name 기반 추천", description: "(Recommended)" },
+        { label: "직접 입력", description: "Other" }
+      ],
+      multiSelect: false
+    },
+    {
+      header: "Trigger",
+      question: "트리거 방식을 선택해주세요",
+      options: [
+        { label: "CE - 단순 (dataLayer)", description: "dataLayer.push만" },
+        { label: "CE - 조건 포함", description: "Cookie/변수 조건" },
+        { label: "기존 트리거 사용", description: "이미 있는 트리거" }
+      ],
+      multiSelect: false
     }
   ]
 })

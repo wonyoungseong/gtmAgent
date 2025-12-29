@@ -22,59 +22,70 @@ mcp__gtm__gtm_account({ action: "list" })
 mcp__gtm__gtm_container({ action: "list", accountId: "..." })
 mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 
-// 2. AskUserQuestion (환경 선택 - 3개 탭)
+// 2. AskUserQuestion (환경만 - 트리거 조건 묻지 않음!)
 AskUserQuestion({
   questions: [
-    {
-      header: "Account",
-      question: "GTM 계정을 선택해주세요",
-      options: [...],
-      multiSelect: false
-    },
-    {
-      header: "Container",
-      question: "컨테이너를 선택해주세요",
-      options: [...],
-      multiSelect: false
-    },
-    {
-      header: "Workspace",
-      question: "워크스페이스를 선택해주세요",
-      options: [...],
-      multiSelect: false
-    }
+    { header: "Account", question: "GTM 계정을 선택해주세요", options: [...], multiSelect: false },
+    { header: "Container", question: "컨테이너를 선택해주세요", options: [...], multiSelect: false },
+    { header: "Workspace", question: "워크스페이스를 선택해주세요", options: [...], multiSelect: false }
   ]
 })
 ```
 
-### Step 2: 패턴 분석 및 이벤트 정보 수집 (메인 Claude)
+### Step 2: 이벤트 자동 분류 및 정보 수집 (메인 Claude)
 
 ```javascript
-// 1. 선택된 환경에서 태그/트리거 조회하여 패턴 추출
-mcp__gtm__gtm_tag({ action: "list", accountId, containerId, workspaceId })
-mcp__gtm__gtm_trigger({ action: "list", accountId, containerId, workspaceId })
+// 1. event_name 기반 자동 분류
+const eventName = "start_test_gtm"  // 사용자 요청에서 추출
 
-// 태그명에서 category 패턴 추출
-// 트리거에서 특수 조건 패턴 추출 (filter 조건이 있는 트리거 확인)
+// 자동 분류 로직:
+const BASIC_EVENTS = ["page_view", "session_start", "first_visit", "scroll", "click", "file_download"]
+const ECOMMERCE_EVENTS = ["purchase", "view_item", "add_to_cart", "remove_from_cart", "begin_checkout", "view_item_list", "select_item", "add_payment_info", "add_shipping_info", "refund"]
 
-// 2. AskUserQuestion (이벤트 정보)
+let autoCategory = null
+if (BASIC_EVENTS.includes(eventName)) {
+  autoCategory = "Basic Event"
+} else if (ECOMMERCE_EVENTS.includes(eventName)) {
+  autoCategory = "Ecommerce"
+}
+
+// 2. GTM에서 기존 패턴 조회 (병렬)
+mcp__gtm__gtm_tag({ action: "list", ... })      // category 패턴
+mcp__gtm__gtm_trigger({ action: "list", ... })  // 기존 트리거 확인
+
+// 3. AskUserQuestion (Category + Action + Trigger 한번에)
+// autoCategory가 있으면 확인만, 없으면 선택
 AskUserQuestion({
   questions: [
     {
       header: "Category",
-      question: "event_category를 선택해주세요",
-      options: [/* GTM에서 추출한 패턴 */],
+      question: autoCategory
+        ? `event_category: "${autoCategory}" (자동 분류) 맞나요?`
+        : "event_category를 선택해주세요",
+      options: autoCategory
+        ? [
+            { label: autoCategory, description: "자동 분류됨 (Recommended)" },
+            { label: "다른 카테고리", description: "직접 선택" }
+          ]
+        : [/* GTM에서 추출한 기존 카테고리 목록 */],
+      multiSelect: false
+    },
+    {
+      header: "Action",
+      question: "event_action을 입력/선택해주세요",
+      options: [
+        { label: "Start Test GTM", description: "event_name 기반 추천" },
+        { label: "직접 입력", description: "Other 선택" }
+      ],
       multiSelect: false
     },
     {
       header: "Trigger",
       question: "트리거 방식을 선택해주세요",
       options: [
-        { label: "CE - Custom Event (단순)", description: "dataLayer.push만 감지" },
-        { label: "CE - Custom Event + 조건", description: "Cookie/변수 조건 포함" },
-        { label: "EV - Element Visibility", description: "요소 노출 감지" },
-        { label: "CL - Click", description: "클릭 이벤트 감지" },
-        { label: "기존 트리거 사용", description: "이미 있는 트리거 선택" }
+        { label: "CE - 단순 (dataLayer)", description: "dataLayer.push만 감지" },
+        { label: "CE - 조건 포함", description: "Cookie/변수 조건 필요" },
+        { label: "기존 트리거 사용", description: "이미 있는 트리거" }
       ],
       multiSelect: false
     }
@@ -82,54 +93,28 @@ AskUserQuestion({
 })
 ```
 
-### Step 3: 특수 트리거 조건 확인 (CE + 조건 선택 시)
+### Step 3: 조건 상세 (CE - 조건 포함 선택 시만)
 
-> 🚨 **"CE - Custom Event + 조건" 선택 시 반드시 실행**
+> 🚨 **"CE - 조건 포함" 선택 시에만 실행**
 
 ```javascript
-// 1. 기존 조건부 트리거 패턴 조회
-mcp__gtm__gtm_trigger({ action: "list", ... })
-// filter 조건이 있는 트리거 찾기:
-// - CE - Qualified Visit: Cookie 조건
-// - CE - Multi Host: Cookie 조건
-// - EV - Imported Content 50%: JS 변수 조건
+// 기존 조건부 트리거 패턴 조회
+mcp__gtm__gtm_trigger({ action: "list", ... })  // filter 있는 트리거
+mcp__gtm__gtm_variable({ action: "list", ... }) // 필요 변수
 
-// 2. 기존 변수 조회 (필요한 변수 확인)
-mcp__gtm__gtm_variable({ action: "list", ... })
-
-// 3. AskUserQuestion (조건 상세)
 AskUserQuestion({
   questions: [
     {
-      header: "조건 타입",
-      question: "어떤 조건이 필요한가요?",
+      header: "조건 패턴",
+      question: "어떤 조건 패턴을 사용할까요?",
       options: [
-        { label: "Cookie 체크", description: "쿠키 값으로 중복 방지 (예: Qualified Visit)" },
-        { label: "변수 체크", description: "JS/DL 변수 값 확인" },
-        { label: "기존 패턴 참조", description: "기존 조건부 트리거와 동일" }
-      ],
-      multiSelect: false
-    },
-    {
-      header: "기존 패턴",
-      question: "참조할 기존 트리거를 선택해주세요",
-      options: [
-        { label: "CE - Qualified Visit", description: "Cookie - BDP Qualified Visit Event Fired" },
-        { label: "CE - Multi Host", description: "Cookie - BDP Multi Host Event Fired" },
-        { label: "새 조건 생성", description: "직접 조건 정의" }
+        { label: "Qualified Visit 패턴", description: "Cookie 중복 방지" },
+        { label: "새 조건 정의", description: "직접 조건 설정" }
       ],
       multiSelect: false
     }
   ]
 })
-```
-
-**조건 생성 시 필요한 변수 확인:**
-```
-조건: Cookie 체크
-→ Cookie 변수 존재 여부 확인
-→ 없으면 Cookie 변수 먼저 생성
-→ 트리거 filter에 조건 추가
 ```
 
 ### Step 4: Sub-Agent Spawn (실행만)
@@ -203,18 +188,18 @@ Task({
 ## 흐름 요약
 
 ```
-1. 키워드 감지 → GTM 작업 시작
-2. 메인 Claude: GTM 데이터 수집 (accounts, containers, workspaces)
-3. 메인 Claude: AskUserQuestion (Step 1 - 환경 선택)
-4. 메인 Claude: GTM 패턴 분석 (tags, triggers에서 패턴 추출)
-5. 메인 Claude: AskUserQuestion (Step 2 - 이벤트 정보)
-6. (조건부) CE + 조건 선택 시:
-   - 기존 조건부 트리거 패턴 조회
-   - 필요 변수 확인
-   - AskUserQuestion (Step 3 - 조건 상세)
-7. 메인 Claude: Sub-Agent spawn (모든 정보 포함)
-8. Sub-Agent: 변수 → 트리거 → 태그 순서로 생성
-9. Sub-Agent: 생성 전 사용자 승인
+질문 레벨 분리:
+├─ Level 1: 환경 (Account, Container, Workspace)
+├─ Level 2: 이벤트 정보 (Category, Action, Trigger)
+└─ Level 3: 조건 상세 (CE - 조건 포함 시만)
+
+1. event_name 추출 → 자동 분류 (Basic/Ecommerce/Custom)
+2. GTM 데이터 수집
+3. AskUserQuestion (환경만)
+4. GTM 패턴 분석 + 자동 분류 결과
+5. AskUserQuestion (Category + Action + Trigger 한번에)
+6. (조건부) CE - 조건 포함 시 → AskUserQuestion (조건 패턴)
+7. Sub-Agent spawn → 변수 → 트리거 → 태그 생성
 ```
 
 ---
