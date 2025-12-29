@@ -26,18 +26,18 @@ mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 AskUserQuestion({
   questions: [
     {
-      header: "Account",
-      question: "GTM 계정을 선택해주세요",
-      options: [...],
-      multiSelect: false
-    },
-    {
       header: "Scope",
       question: "작업 범위를 선택해주세요",
       options: [
         { label: "Single Container", description: "하나의 컨테이너에서 작업" },
         { label: "Multi Container", description: "여러 컨테이너에 동일 작업 적용" }
       ],
+      multiSelect: false
+    },
+    {
+      header: "Account",
+      question: "GTM 계정을 선택해주세요",
+      options: [...],
       multiSelect: false
     },
     {
