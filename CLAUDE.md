@@ -71,8 +71,14 @@ if (selectedWorkspace === "새 Workspace 생성") {
     accountId,
     containerId,
     createOrUpdateConfig: {
-      name: workspaceName,
-      description: "GTM Agent | {작업 설명} | {날짜}"
+      name: workspaceName,  // 예: "Add start_test_gtm"
+      description: `{event_name} 이벤트 추가 | GTM Agent | {목적/세부내용} | {날짜}
+
+목표: {이벤트의 목적}
+세부 내용:
+- 태그: GA4 - {category} - {action}
+- 트리거: {trigger_type} - {event_name}
+- Parameters: event_category, event_action, event_label`
     }
   })
 }
@@ -261,8 +267,15 @@ Task({
 5. **다음 단계**
    - Preview 모드 → DebugView → Publish
 
+## 필수 참조 파일 (반드시 읽을 것)
+1. .claude/skills/gtm/SKILL.md - Output Format, Golden Rules
+2. .claude/skills/gtm/resources/procedures.md - 상세 워크플로우
+3. .claude/skills/gtm/resources/references/workspace.md - Workspace 네이밍
+4. .claude/skills/gtm/resources/references/naming-convention.md - 태그/트리거 네이밍
+5. .claude/skills/gtm/resources/references/validation.md - ES5, 검증
+
 ## 규칙
-- .claude/skills/gtm/SKILL.md의 Output Format 참조
+- 위 참조 파일들의 규칙을 반드시 따를 것
 - remove, publish 절대 금지
 `
 })

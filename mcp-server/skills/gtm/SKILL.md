@@ -126,18 +126,48 @@ dataLayer.push({ event: '{event_name}' });
 
 ---
 
+## Workspace 네이밍 (핵심 요약)
+
+```
+이름: [작업유형] {event_name}
+설명: {event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}
+
+예시:
+이름: "Add start_camera"
+설명: "start_camera 이벤트 추가 | GTM Agent | 카메라 시작 추적 | 2024-12-28"
+
+작업유형: Add, Fix, Update, Remove, Refactor
+```
+
+---
+
+## Parameter Value 케이스 (핵심 요약)
+
+```
+1. GTM 패턴 분석 먼저 (Phase 1)
+2. 해당 GTM의 기존 패턴 우선
+3. 일반적으로 소문자 사용 (snake_case 또는 단순 소문자)
+
+예시:
+- event_category: "start_camera", "scroll", "ecommerce"
+- event_action: "popup_impressions", "click", "purchase"
+```
+
+---
+
 ## 상세 절차
 
 **[procedures.md](resources/procedures.md)** 참조:
-- Phase 0: 환경 선택 (AskUserQuestion 4탭)
+- Phase 0: 환경 선택 (AskUserQuestion)
 - Add Event: 패턴 분석 → 정보 수집 → 생성
 
 ---
 
-## References
+## References (반드시 참조)
 
 | 문서 | 내용 |
 |------|------|
 | [procedures.md](resources/procedures.md) | 상세 워크플로우 |
-| [naming-convention.md](resources/references/naming-convention.md) | 네이밍 규칙 |
+| [workspace.md](resources/references/workspace.md) | Workspace 네이밍, 제한 |
+| [naming-convention.md](resources/references/naming-convention.md) | 태그/트리거 네이밍 |
 | [validation.md](resources/references/validation.md) | ES5, 검증 |
