@@ -311,12 +311,23 @@ gtm_workspace(action: "get", workspaceId)  // 현재 fingerprint 조회
 gtm_workspace(action: "update", workspaceId, fingerprint, {
   description: `{event_name} 이벤트 추가 | GTM Agent | {날짜}
 
-목표: {이벤트의 목적 - 태그명에서 보이지 않는 비즈니스 목적}
+목표: {비즈니스 목적}
+
 상세:
-- 태그: GA4 - {Category} - {Action}
-- 트리거: CE - {Event Name}
-- Parameters: event_category, event_action`
+- Parameters: {실제 파라미터 값들}
+- 트리거 조건: {트리거 filter 조건}
+- 특이사항: {변수, 조건 등 특이사항}`
 })
+
+// 예시:
+// "start_camera 이벤트 추가 | GTM Agent | 2024-12-28
+//
+// 목표: 카메라 기능 사용률 분석
+//
+// 상세:
+// - Parameters: event_category=etc, event_action=start_camera
+// - 트리거 조건: event="start_camera"
+// - 특이사항: 없음"
 ```
 
 > ⚠️ **태그 생성 후 반드시 워크스페이스 description 업데이트**

@@ -88,19 +88,32 @@ if (selectedWorkspace === "새 Workspace 생성") {
       name: workspaceName,  // 예: "Add start_camera"
       description: `{event_name} 이벤트 추가 | GTM Agent | {날짜}
 
-목표: {이벤트의 목적 - 태그명에서 보이지 않는 비즈니스 목적}
+목표: {비즈니스 목적}
+
 상세:
-- 태그: GA4 - {Category} - {Action}
-- 트리거: CE - {Event Name}
-- Parameters: event_category, event_action`
-      // 예:
+- Parameters: {실제 파라미터 값들}
+- 트리거 조건: {트리거 filter 조건}
+- 특이사항: {변수, 조건 등 특이사항}`
+
+      // 예시 1 (단순):
       // "start_camera 이벤트 추가 | GTM Agent | 2024-12-28
       //
-      // 목표: 사용자가 카메라 기능을 시작할 때 추적하여 기능 사용률 분석
+      // 목표: 카메라 기능 사용률 분석
+      //
       // 상세:
-      // - 태그: GA4 - ETC - Start Camera
-      // - 트리거: CE - Start Camera
-      // - Parameters: event_category, event_action"
+      // - Parameters: event_category=etc, event_action=start_camera
+      // - 트리거 조건: event="start_camera"
+      // - 특이사항: 없음"
+
+      // 예시 2 (복잡):
+      // "qualified_visit 이벤트 추가 | GTM Agent | 2024-12-28
+      //
+      // 목표: 자격 있는 방문자 첫 방문 시 1회만 추적
+      //
+      // 상세:
+      // - Parameters: event_category=qualified, event_action=visit
+      // - 트리거 조건: event="qualified_visit" AND Cookie="N"
+      // - 특이사항: Cookie 조건으로 중복 방지, 변수 Cookie - BDP 사용"
     }
   })
 }
