@@ -225,11 +225,86 @@ gtm_export_full({
 | Business | `GA4 - {category} - {action}` |
 
 ### Trigger
-| 타입 | 패턴 |
-|------|------|
-| Custom Event | `CE - {Event}` |
-| Page View | `PV - {Desc}` |
-| Click | `CL - {Desc}` |
+| 타입 | 패턴 | 설명 |
+|------|------|------|
+| Custom Event (단순) | `CE - {Event}` | dataLayer.push만 감지 |
+| Custom Event + 조건 | `CE - {Event}` | Cookie/변수 조건 포함 |
+| Element Visibility | `EV - {Desc}` | 요소 노출 감지 |
+| Click | `CL - {Desc}` | 클릭 이벤트 |
+| Link Click | `LC - {Desc}` | 링크 클릭 |
+| Form Submission | `FS - {Desc}` | 폼 제출 |
+| DOM Ready | `DR - {Desc}` | DOM 준비 완료 |
+| Page View | `PV - {Desc}` | 페이지뷰 |
+| YouTube Video | `YV - {Desc}` | 유튜브 비디오 |
+| Timer | `TM - {Desc}` | 타이머 |
+| Scroll Depth | `SD - {Desc}` | 스크롤 깊이 |
+
+---
+
+## Trigger Types (상세)
+
+### CE - Custom Event (단순)
+```javascript
+// dataLayer.push만 감지
+{
+  type: "customEvent",
+  customEventFilter: [
+    { type: "equals", parameter: [
+      { key: "arg0", value: "{{_event}}" },
+      { key: "arg1", value: "event_name" }
+    ]}
+  ]
+}
+```
+
+### CE - Custom Event + 조건
+```javascript
+// Cookie/변수 조건 포함 (예: Qualified Visit)
+{
+  type: "customEvent",
+  customEventFilter: [
+    { type: "equals", parameter: [
+      { key: "arg0", value: "{{_event}}" },
+      { key: "arg1", value: "qualified_visit" }
+    ]}
+  ],
+  filter: [
+    { type: "equals", parameter: [
+      { key: "arg0", value: "{{Cookie - BDP Qualified Visit Event Fired}}" },
+      { key: "arg1", value: "N" }
+    ]}
+  ]
+}
+```
+> 필요 변수: Cookie 변수 (`1st Party Cookie` 타입)
+
+### EV - Element Visibility
+```javascript
+{
+  type: "elementVisibility",
+  parameter: [
+    { key: "selectorType", value: "CSS" },
+    { key: "elementSelector", value: ".className" },
+    { key: "onScreenRatio", value: "50" },
+    { key: "firingFrequency", value: "ONCE_PER_PAGE" },
+    { key: "useDomChangeListener", value: "true" }
+  ],
+  filter: [/* 추가 조건 */]
+}
+```
+
+### CL - Click / Link Click
+```javascript
+{
+  type: "linkClick",  // 또는 "click"
+  filter: [
+    { type: "equals", parameter: [
+      { key: "arg0", value: "{{Click Classes}}" },
+      { key: "arg1", value: "button_class" }
+    ]}
+  ]
+}
+```
 
 ### Variable
 | 타입 | 패턴 |

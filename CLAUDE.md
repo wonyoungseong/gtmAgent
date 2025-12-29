@@ -85,7 +85,10 @@ AskUserQuestion({
       header: "Trigger",
       question: "트리거 방식을 선택해주세요",
       options: [
-        { label: "Custom Event (dataLayer)", description: "dataLayer.push 방식" },
+        { label: "CE - Custom Event (단순)", description: "dataLayer.push만 감지" },
+        { label: "CE - Custom Event + 조건", description: "Cookie/변수 조건 포함 (예: Qualified Visit)" },
+        { label: "EV - Element Visibility", description: "요소 노출 감지" },
+        { label: "CL - Click", description: "클릭 이벤트 감지" },
         { label: "기존 트리거 사용", description: "이미 있는 트리거 선택" }
       ],
       multiSelect: false
