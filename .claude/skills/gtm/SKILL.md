@@ -89,17 +89,17 @@ language: Korean
 ### 태그
 | 항목 | 값 |
 |------|-----|
-| 이름 | GA4 - {category} - {action} |
+| 이름 | GA4 - {Category} - {Action} (Title Case) |
 | ID | {tagId} |
 | 타입 | GA4 Event |
 | 이벤트명 | {event_name} |
 | Measurement ID | {{GA4 - Measurement ID}} |
 
-### Parameters
+### Parameters (소문자, GTM 패턴 따름)
 | Key | Value |
 |-----|-------|
-| event_category | {category} |
-| event_action | {action} |
+| event_category | {category_lowercase} |
+| event_action | {action_lowercase} |
 | event_label | (선택) |
 
 ---

@@ -78,9 +78,9 @@ AskUserQuestion({
     },
     {
       header: "Action",
-      question: "event_action을 입력/선택해주세요",
+      question: "event_action을 입력/선택해주세요 (소문자)",
       options: [
-        { label: "Start Test GTM", description: "event_name 기반 추천" },
+        { label: "start_test_gtm", description: "event_name 기반 추천" },
         { label: "직접 입력", description: "Other 선택" }
       ],
       multiSelect: false
@@ -89,8 +89,10 @@ AskUserQuestion({
       header: "Trigger",
       question: "트리거 방식을 선택해주세요",
       options: [
-        { label: "CE - 단순 (dataLayer)", description: "dataLayer.push만 감지" },
-        { label: "CE - 조건 포함", description: "Cookie/변수 조건 필요" },
+        { label: "CE - dataLayer.push", description: "단순 Custom Event" },
+        { label: "EV - Element Visibility", description: "요소 노출 감지" },
+        { label: "CL - Click/Link Click", description: "클릭 이벤트" },
+        { label: "복잡한 구현 필요", description: "구현 방식 논의 (Step 2.5)" },
         { label: "기존 트리거 사용", description: "이미 있는 트리거" }
       ],
       multiSelect: false
@@ -99,26 +101,73 @@ AskUserQuestion({
 })
 ```
 
-### Step 3: 조건 상세 (CE - 조건 포함 선택 시만)
+### Step 2.5: 구현 방식 논의 (복잡한 구현 필요 선택 시)
 
-> 🚨 **"CE - 조건 포함" 선택 시에만 실행**
+> 🚨 **"복잡한 구현 필요" 선택 시에만 실행**
 
 ```javascript
-// 기존 조건부 트리거 패턴 조회
-mcp__gtm__gtm_trigger({ action: "list", ... })  // filter 있는 트리거
-mcp__gtm__gtm_variable({ action: "list", ... }) // 필요 변수
+// 1. GTM 기존 패턴 분석
+mcp__gtm__gtm_trigger({ action: "list", ... })  // 복잡한 트리거 패턴
+mcp__gtm__gtm_variable({ action: "list", ... }) // 관련 변수
+mcp__gtm__gtm_tag({ action: "list", ... })      // Custom HTML 태그
 
+// 2. 구현 방식 논의
 AskUserQuestion({
   questions: [
     {
-      header: "조건 패턴",
-      question: "어떤 조건 패턴을 사용할까요?",
+      header: "구현 유형",
+      question: "어떤 구현 방식이 필요한가요?",
       options: [
-        { label: "Qualified Visit 패턴", description: "Cookie 중복 방지" },
-        { label: "새 조건 정의", description: "직접 조건 설정" }
+        { label: "Cookie 기반 조건", description: "Qualified Visit 패턴 (중복 방지)" },
+        { label: "Flag 변수 활용", description: "JS/DL 변수로 상태 관리" },
+        { label: "복합 조건 트리거", description: "여러 조건 AND/OR 조합" },
+        { label: "Custom HTML 연동", description: "HTML 태그에서 이벤트 발생" }
       ],
       multiSelect: false
     }
+  ]
+})
+
+// 3. 세부 논의 (구현 유형에 따라)
+// Cookie 기반 → 쿠키명, 만료 조건
+// Flag 변수 → 변수 타입, 초기값, 변경 조건
+// 복합 조건 → 조건 목록, 연산자
+// Custom HTML → HTML 코드 위치, dataLayer 구조
+```
+
+**구현 유형별 필요 사항:**
+
+| 유형 | 필요 구성요소 | 예시 |
+|------|--------------|------|
+| Cookie 기반 | Cookie 변수 + 트리거 filter | Qualified Visit (1회만 발동) |
+| Flag 변수 | JS/DL 변수 + 조건 체크 | 특정 상태에서만 발동 |
+| 복합 조건 | 다중 filter + 변수 조합 | URL + Cookie + 시간 조건 |
+| Custom HTML | HTML 태그 + dataLayer.push | 외부 스크립트 연동 |
+
+### Step 3: 구현 세부 설정
+
+> 🚨 **Step 2.5에서 구현 유형 선택 후 실행**
+
+```javascript
+// 구현 유형에 따라 필요한 추가 질문
+AskUserQuestion({
+  questions: [
+    // Cookie 기반 선택 시
+    {
+      header: "Cookie 설정",
+      question: "Cookie 조건을 설정해주세요",
+      options: [
+        { label: "기존 패턴 사용", description: "Qualified Visit 등 기존 패턴" },
+        { label: "새 Cookie 정의", description: "새로운 Cookie 조건 생성" }
+      ],
+      multiSelect: false
+    }
+    // 또는 Flag 변수 선택 시
+    // {
+    //   header: "Flag 변수",
+    //   question: "Flag 변수 타입을 선택해주세요",
+    //   options: [...]
+    // }
   ]
 })
 ```
@@ -141,13 +190,13 @@ Task({
 
 ## 이벤트 정보 (수집 완료)
 - event_name: start_test_gtm
-- event_category: ETC
-- event_action: Start Test GTM
+- event_category: etc (소문자, GTM 패턴 따름)
+- event_action: start_test_gtm (소문자, GTM 패턴 따름)
 - trigger: Custom Event (dataLayer)
 
 ## 작업 지시
 위 정보로 태그를 생성하세요.
-- 태그명: GA4 - ETC - Start Test GTM
+- 태그명: GA4 - Etc - Start Test Gtm (Title Case로 변환)
 - 트리거명: CE - start_test_gtm
 - **사용자에게 추가 질문하지 말 것!**
 - 생성 전 사용자 승인만 받을 것
@@ -198,7 +247,8 @@ Task({
 ├─ Level 1-1: Account + Container
 ├─ Level 1-2: Workspace (Container 선택 후)
 ├─ Level 2: 이벤트 정보 (Category, Action, Trigger)
-└─ Level 3: 조건 상세 (CE - 조건 포함 시만)
+├─ Level 2.5: 구현 방식 논의 (복잡한 구현 필요 시)
+└─ Level 3: 구현 세부 설정 (Step 2.5 선택에 따라)
 
 1. event_name 추출 → 자동 분류 (Basic/Ecommerce/Custom)
 2. GTM 데이터 수집 (accounts, containers)
@@ -207,8 +257,17 @@ Task({
 5. AskUserQuestion (Workspace)
 6. GTM 패턴 분석 + 자동 분류 결과
 7. AskUserQuestion (Category + Action + Trigger)
-8. (조건부) CE - 조건 포함 시 → AskUserQuestion (조건 패턴)
+8. (조건부) 복잡한 구현 필요 시:
+   ├─ Step 2.5: 구현 방식 논의 (Cookie/Flag/복합/HTML)
+   └─ Step 3: 구현 세부 설정
 9. Sub-Agent spawn → 변수 → 트리거 → 태그 생성
+
+Trigger 유형:
+├─ CE - dataLayer.push (단순)
+├─ EV - Element Visibility
+├─ CL - Click/Link Click
+├─ 복잡한 구현 필요 → Step 2.5
+└─ 기존 트리거 사용
 ```
 
 ---

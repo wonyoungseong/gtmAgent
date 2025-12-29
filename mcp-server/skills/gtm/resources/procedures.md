@@ -53,7 +53,7 @@ AskUserQuestion({
 
 ### Phase 1: GTM 패턴 분석
 
-> 🚨 **추측 금지!** GTM에서 실제 패턴 추출
+> 🚨 **추측 금지!** GTM에서 실제 패턴 추출 → **해당 GTM 패턴 우선**
 
 ```javascript
 // 1. 기존 GA4 태그 조회
@@ -63,8 +63,12 @@ gtm_tag(action: "list", accountId, containerId, workspaceId)
 // "GA4 - Start Diagnosis - Popup" → category: "Start Diagnosis"
 // "GA4 - Ecommerce - Purchase" → category: "Ecommerce"
 
-// 3. parameter에서 event_category 값 확인
+// 3. parameter에서 event_category/action 값 + 케이스 패턴 확인
 // parameter.key === "event_category" → 값 또는 변수({{...}})
+// 케이스 패턴 확인:
+//   - snake_case: "start_diagnosis", "popup_impressions"
+//   - 단순 소문자: "scroll", "click"
+//   - 기타: GTM마다 다를 수 있음
 
 // 4. 트리거에서 event_name 추출
 gtm_trigger(action: "list", ...)
@@ -75,7 +79,10 @@ gtm_trigger(action: "list", ...)
 ```
 발견된 category: Start Diagnosis(15), Ecommerce(8), Basic Event(5)
 발견된 event_name: purchase, view_item, start_camera
+케이스 패턴: snake_case (예: start_diagnosis, popup_impressions)
 ```
+
+> ⚠️ **패턴 우선순위**: 해당 GTM의 기존 패턴 > 일반 규칙
 
 ### Phase 2: 이벤트 자동 분류 및 정보 수집
 
@@ -125,37 +132,53 @@ AskUserQuestion({
 })
 ```
 
-### Phase 3: 트리거 확인
+### Phase 3: 트리거 유형 선택
 
 ```javascript
 gtm_trigger(action: "list", ...)
 // event_name 일치하는 트리거 있으면 사용
-// 없으면 생성: CE - {event_name}
+// 없으면 유형에 맞게 생성
+
+// 트리거 유형:
+// - CE - dataLayer.push (단순)
+// - EV - Element Visibility
+// - CL - Click/Link Click
+// - 복잡한 구현 필요 → Phase 3.5
+// - 기존 트리거 사용
 ```
 
-### Phase 3.5: 특수 조건 확인 (CE + 조건 선택 시)
+### Phase 3.5: 구현 방식 논의 (복잡한 구현 필요 시)
 
-> 🚨 **"CE - Custom Event + 조건" 선택 시 반드시 실행**
+> 🚨 **"복잡한 구현 필요" 선택 시 반드시 실행**
 
 ```javascript
-// 1. 기존 조건부 트리거 패턴 조회
-gtm_trigger(action: "list", ...)
-// filter 조건이 있는 트리거 찾기:
-// - CE - Qualified Visit: Cookie 조건
-// - CE - Multi Host: Cookie 조건
+// 1. GTM 기존 패턴 분석
+gtm_trigger(action: "list", ...)  // 복잡한 트리거 패턴
+gtm_variable(action: "list", ...)  // 관련 변수
+gtm_tag(action: "list", ...)       // Custom HTML 태그
 
-// 2. 사용할 조건 패턴 확인
-// 예: Qualified Visit 패턴
+// 2. 구현 유형 선택
+// - Cookie 기반 조건: Qualified Visit 패턴 (중복 방지)
+// - Flag 변수 활용: JS/DL 변수로 상태 관리
+// - 복합 조건 트리거: 여러 조건 AND/OR 조합
+// - Custom HTML 연동: HTML 태그에서 이벤트 발생
+```
+
+**구현 유형별 상세:**
+
+#### 1. Cookie 기반 조건 (Qualified Visit 패턴)
+```javascript
+// 필요 구성요소:
+// - Cookie 변수 (1st Party Cookie)
+// - 트리거 filter 조건
+
+// 예: Qualified Visit
 {
   customEventFilter: [{ event: "qualified_visit" }],
   filter: [{ variable: "{{Cookie - BDP Qualified Visit Event Fired}}", value: "N" }]
 }
 
-// 3. 필요 변수 존재 여부 확인
-gtm_variable(action: "list", ...)
-// Cookie 변수 있는지 확인
-
-// 4. 없으면 변수 먼저 생성
+// Cookie 변수 생성
 gtm_variable(action: "create", {
   name: "Cookie - BDP {Event} Event Fired",
   type: "k",  // 1st Party Cookie
@@ -163,12 +186,75 @@ gtm_variable(action: "create", {
 })
 ```
 
-**조건부 트리거 생성 순서:**
+#### 2. Flag 변수 활용
+```javascript
+// 필요 구성요소:
+// - JavaScript 변수 또는 Data Layer 변수
+// - 상태 체크 트리거 조건
+
+// 예: JS 변수로 상태 관리
+gtm_variable(action: "create", {
+  name: "JS - {Feature} Flag",
+  type: "jsm",  // Custom JavaScript
+  parameter: [{ key: "javascript", value: "function() { return window.featureFlag || false; }" }]
+})
+
+// 트리거에서 Flag 체크
+{
+  filter: [{ variable: "{{JS - {Feature} Flag}}", value: "true" }]
+}
 ```
-1. 필요 변수 확인 (Cookie, JS, DL)
-2. 변수 없으면 먼저 생성
-3. 트리거 생성 시 filter에 변수 조건 추가
+
+#### 3. 복합 조건 트리거
+```javascript
+// 필요 구성요소:
+// - 다중 filter 조건
+// - 변수 조합 (URL, Cookie, 시간 등)
+
+// 예: URL + Cookie 조건
+{
+  filter: [
+    { type: "contains", parameter: [
+      { key: "arg0", value: "{{Page Path}}" },
+      { key: "arg1", value: "/checkout" }
+    ]},
+    { type: "equals", parameter: [
+      { key: "arg0", value: "{{Cookie - User Type}}" },
+      { key: "arg1", value: "premium" }
+    ]}
+  ]
+}
+```
+
+#### 4. Custom HTML 연동
+```javascript
+// 필요 구성요소:
+// - Custom HTML 태그 (dataLayer.push 포함)
+// - Custom Event 트리거
+
+// HTML 태그에서 이벤트 발생:
+// <script>
+//   dataLayer.push({
+//     event: 'custom_event_name',
+//     eventData: { ... }
+//   });
+// </script>
+
+// 해당 이벤트를 받는 트리거 생성
+gtm_trigger(action: "create", {
+  name: "CE - {custom_event_name}",
+  type: "customEvent",
+  customEventFilter: [...]
+})
+```
+
+**구현 순서:**
+```
+1. 구현 유형 선택 (Cookie/Flag/복합/HTML)
+2. 필요 변수 확인 및 생성
+3. 트리거 생성 (조건 포함)
 4. 태그 생성
+5. 테스트 (Preview 모드)
 ```
 
 ### Phase 4: 태그 설정
