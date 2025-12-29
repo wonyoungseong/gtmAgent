@@ -256,10 +256,16 @@ Task({
 
 ## 작업 지시
 위 정보로 태그를 생성하세요.
-- 태그명: GA4 - Etc - Start Test Gtm (Title Case로 변환)
+- 태그명: GA4 - ETC - Start Test Gtm (Title Case, 약자는 대문자)
 - 트리거명: CE - start_test_gtm
 - **사용자에게 추가 질문하지 말 것!**
 - 생성 전 사용자 승인만 받을 것
+
+## ⚠️ 약자 규칙 (필수)
+약자는 태그명에서 대문자 유지:
+- etc → ETC, api → API, cta → CTA
+- ui → UI, url → URL, id → ID
+- seo → SEO, bts → BTS, ga4 → GA4
 
 ## 출력 요구사항
 생성 완료 후 반드시 다음 정보를 **상세하게** 출력:
