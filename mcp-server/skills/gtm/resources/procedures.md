@@ -214,24 +214,72 @@ gtm_trigger(action: "list", ...)
 // - 기존 트리거 사용
 ```
 
-### Phase 3.5: 구현 방식 논의 (복잡한 구현 필요 시)
+### Phase 3.5: 복잡한 구현 논의 (복잡한 구현 필요 시)
 
 > 🚨 **"복잡한 구현 필요" 선택 시 반드시 실행**
+>
+> 예시: `qualified_visit` 이벤트는 다음 구성요소가 필요:
+> 1. Cookie 변수 (`Cookie - BDP Qualified Visit Event Fired`)
+> 2. Custom HTML 태그 (쿠키 설정용)
+> 3. 조건부 트리거 (Cookie 체크)
+> 4. GA4 이벤트 태그
+> 5. Tag Sequencing (태그 발동 순서)
 
 ```javascript
-// 1. GTM 기존 패턴 분석
-gtm_trigger(action: "list", ...)  // 복잡한 트리거 패턴
-gtm_variable(action: "list", ...)  // 관련 변수
+// 1. GTM 기존 패턴 분석 (유사한 복잡 구현 찾기)
+gtm_trigger(action: "list", ...)  // filter 있는 트리거
+gtm_variable(action: "list", ...)  // Cookie, JS 변수
 gtm_tag(action: "list", ...)       // Custom HTML 태그
 
-// 2. 구현 유형 선택
-// - Cookie 기반 조건: Qualified Visit 패턴 (중복 방지)
-// - Flag 변수 활용: JS/DL 변수로 상태 관리
-// - 복합 조건 트리거: 여러 조건 AND/OR 조합
-// - Custom HTML 연동: HTML 태그에서 이벤트 발생
+// 2. 필요 구성요소 파악 (다중 선택)
+AskUserQuestion({
+  questions: [{
+    header: "구성요소",
+    question: "이 이벤트에 필요한 구성요소를 모두 선택해주세요",
+    options: [
+      { label: "변수 (Variable)", description: "Cookie, JS, Data Layer 변수" },
+      { label: "설정 태그 (Setup Tag)", description: "Custom HTML로 쿠키/변수 설정" },
+      { label: "조건부 트리거", description: "Cookie, URL 등 조건 포함" },
+      { label: "Tag Sequencing", description: "태그 발동 순서 지정" }
+    ],
+    multiSelect: true  // 🚨 다중 선택!
+  }]
+})
 ```
 
-**구현 유형별 상세:**
+### Phase 4: 구성요소별 세부 설정
+
+> 🚨 **Phase 3.5에서 선택한 각 구성요소에 대해 순차 질문**
+
+#### 4-1. 변수 설정 (Variable 선택 시)
+- Cookie 변수: 이름, 읽을 Cookie명
+- JS 변수: 함수 용도 (값 반환, 조건 체크, DOM 조회)
+- DL 변수: Data Layer 키 이름
+
+#### 4-2. 설정 태그 (Setup Tag 선택 시)
+- 용도: Cookie 설정, 변수 설정, dataLayer.push, 외부 스크립트
+- Cookie 설정 시: 만료 조건 (세션, 1일, 7일, 30일)
+
+#### 4-3. 조건부 트리거 (선택 시)
+- 조건 타입: Cookie 값, URL 조건, DL 값, JS 변수 값
+- Cookie 조건: N일 때 발동, Y일 때 발동, 없을 때 발동
+
+#### 4-4. Tag Sequencing (선택 시)
+- 순서: Setup → Main, Main → Cleanup, Setup → Main → Cleanup
+
+**구현 예시 (qualified_visit):**
+
+| 순서 | 구성요소 | 이름 | 설명 |
+|------|----------|------|------|
+| 1 | 변수 | `Cookie - BDP Qualified Visit Event Fired` | Cookie 값 읽기 |
+| 2 | 설정 태그 | `cHTML - Set Qualified Visit Cookie` | Cookie를 Y로 설정 |
+| 3 | 트리거 | `CE - Qualified Visit` | event + Cookie=N 조건 |
+| 4 | 메인 태그 | `GA4 - Qualified - Visit` | GA4 이벤트 전송 |
+| 5 | Sequencing | 메인 태그 → 설정 태그 | 이벤트 후 Cookie 설정 |
+
+---
+
+**구현 유형별 상세 (참고용):**
 
 #### 1. Cookie 기반 조건 (Qualified Visit 패턴)
 ```javascript

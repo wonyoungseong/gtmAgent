@@ -210,80 +210,219 @@ AskUserQuestion({
 })
 ```
 
-### Step 2.5: 구현 방식 논의 (복잡한 구현 필요 선택 시)
+### Step 2.5-A: 복잡한 구현 논의 (복잡한 구현 필요 선택 시)
 
 > 🚨 **"복잡한 구현 필요" 선택 시에만 실행**
+>
+> 예시: `qualified_visit` 이벤트는 다음 구성요소가 필요:
+> 1. Cookie 변수 (`Cookie - BDP Qualified Visit Event Fired`)
+> 2. Custom HTML 태그 (쿠키 설정용)
+> 3. 조건부 트리거 (Cookie 체크)
+> 4. GA4 이벤트 태그
+> 5. Tag Sequencing (태그 발동 순서)
 
 ```javascript
-// 1. GTM 기존 패턴 분석
-mcp__gtm__gtm_trigger({ action: "list", ... })  // 복잡한 트리거 패턴
-mcp__gtm__gtm_variable({ action: "list", ... }) // 관련 변수
+// 1. GTM 기존 패턴 분석 (유사한 복잡 구현 찾기)
+mcp__gtm__gtm_trigger({ action: "list", ... })  // filter 있는 트리거
+mcp__gtm__gtm_variable({ action: "list", ... }) // Cookie, JS 변수
 mcp__gtm__gtm_tag({ action: "list", ... })      // Custom HTML 태그
 
-// 2. 구현 방식 논의
+// 2. 유사 패턴 발견 시 제안
+// 예: "Qualified Visit 패턴이 이미 있습니다. 동일하게 구현할까요?"
+
+// 3. 필요 구성요소 파악 (다중 선택)
 AskUserQuestion({
   questions: [
     {
-      header: "구현 유형",
-      question: "어떤 구현 방식이 필요한가요?",
+      header: "구성요소",
+      question: "이 이벤트에 필요한 구성요소를 모두 선택해주세요",
       options: [
-        { label: "Cookie 기반 조건", description: "Qualified Visit 패턴 (중복 방지)" },
-        { label: "Flag 변수 활용", description: "JS/DL 변수로 상태 관리" },
-        { label: "복합 조건 트리거", description: "여러 조건 AND/OR 조합" },
-        { label: "Custom HTML 연동", description: "HTML 태그에서 이벤트 발생" }
+        { label: "변수 (Variable)", description: "Cookie, JS, Data Layer 변수" },
+        { label: "설정 태그 (Setup Tag)", description: "Custom HTML로 쿠키/변수 설정" },
+        { label: "조건부 트리거", description: "Cookie, URL 등 조건 포함" },
+        { label: "Tag Sequencing", description: "태그 발동 순서 지정" }
       ],
-      multiSelect: false
+      multiSelect: true  // 🚨 다중 선택!
     }
   ]
 })
-
-// 3. 세부 논의 (구현 유형에 따라)
-// Cookie 기반 → 쿠키명, 만료 조건
-// Flag 변수 → 변수 타입, 초기값, 변경 조건
-// 복합 조건 → 조건 목록, 연산자
-// Custom HTML → HTML 코드 위치, dataLayer 구조
 ```
 
-**구현 유형별 필요 사항:**
+### Step 3: 구성요소별 세부 설정
 
-| 유형 | 필요 구성요소 | 예시 |
-|------|--------------|------|
-| Cookie 기반 | Cookie 변수 + 트리거 filter | Qualified Visit (1회만 발동) |
-| Flag 변수 | JS/DL 변수 + 조건 체크 | 특정 상태에서만 발동 |
-| 복합 조건 | 다중 filter + 변수 조합 | URL + Cookie + 시간 조건 |
-| Custom HTML | HTML 태그 + dataLayer.push | 외부 스크립트 연동 |
+> 🚨 **Step 2.5-A에서 선택한 각 구성요소에 대해 순차 질문**
 
-### Step 3: 구현 세부 설정
-
-> 🚨 **Step 2.5에서 구현 유형 선택 후 실행**
+#### 3-1. 변수 설정 (Variable 선택 시)
 
 ```javascript
-// 구현 유형에 따라 필요한 추가 질문
+// GTM에서 기존 변수 패턴 분석
+gtm_variable({ action: "list", ... })
+// Cookie 변수: type: "k" (1st Party Cookie)
+// JS 변수: type: "jsm" (Custom JavaScript)
+// DL 변수: type: "v" (Data Layer Variable)
+
 AskUserQuestion({
   questions: [
-    // Cookie 기반 선택 시
     {
-      header: "Cookie 설정",
-      question: "Cookie 조건을 설정해주세요",
+      header: "변수 타입",
+      question: "필요한 변수 타입을 선택해주세요",
       options: [
-        { label: "기존 패턴 사용", description: "Qualified Visit 등 기존 패턴" },
-        { label: "새 Cookie 정의", description: "새로운 Cookie 조건 생성" }
+        { label: "Cookie 변수", description: "1st Party Cookie 읽기" },
+        { label: "JS 변수", description: "Custom JavaScript 실행" },
+        { label: "Data Layer 변수", description: "dataLayer에서 값 추출" },
+        { label: "기존 변수 사용", description: "이미 있는 변수 활용" }
+      ],
+      multiSelect: true
+    }
+  ]
+})
+
+// Cookie 변수 선택 시 추가 질문
+AskUserQuestion({
+  questions: [
+    {
+      header: "Cookie 이름",
+      question: "Cookie 이름을 입력해주세요",
+      options: [
+        { label: "bdp_{event}_fired", description: "GTM 패턴 따름 (Recommended)" },
+        { label: "직접 입력", description: "새 Cookie 이름" }
       ],
       multiSelect: false
     }
-    // 또는 Flag 변수 선택 시
-    // {
-    //   header: "Flag 변수",
-    //   question: "Flag 변수 타입을 선택해주세요",
-    //   options: [...]
-    // }
+  ]
+})
+
+// JS 변수 선택 시 추가 질문
+AskUserQuestion({
+  questions: [
+    {
+      header: "JS 함수",
+      question: "JavaScript 함수 용도를 설명해주세요",
+      options: [
+        { label: "값 반환", description: "특정 값 계산/반환" },
+        { label: "조건 체크", description: "true/false 반환" },
+        { label: "DOM 조회", description: "페이지 요소에서 값 추출" },
+        { label: "직접 입력", description: "함수 로직 설명" }
+      ],
+      multiSelect: false
+    }
   ]
 })
 ```
 
-### Step 2.5: Event Settings Variable 확인 (GA4 선택 시)
+#### 3-2. 설정 태그 (Setup Tag 선택 시)
 
-> 🚨 **GA4 Event 선택 시에만 실행**
+```javascript
+// Custom HTML 태그 패턴 분석
+gtm_tag({ action: "list", ... })
+// type: "html" 인 태그들 확인
+
+AskUserQuestion({
+  questions: [
+    {
+      header: "설정 태그 용도",
+      question: "Custom HTML 태그가 무엇을 해야 하나요?",
+      options: [
+        { label: "Cookie 설정", description: "document.cookie로 쿠키 생성" },
+        { label: "변수 설정", description: "window 변수 설정" },
+        { label: "dataLayer.push", description: "dataLayer에 데이터 추가" },
+        { label: "외부 스크립트", description: "외부 JS 로드/실행" },
+        { label: "직접 설명", description: "Other" }
+      ],
+      multiSelect: true
+    }
+  ]
+})
+
+// Cookie 설정 선택 시
+AskUserQuestion({
+  questions: [
+    {
+      header: "Cookie 만료",
+      question: "Cookie 만료 조건은?",
+      options: [
+        { label: "세션", description: "브라우저 닫으면 삭제" },
+        { label: "1일", description: "24시간 후 삭제" },
+        { label: "7일", description: "일주일 후 삭제" },
+        { label: "30일", description: "한달 후 삭제" },
+        { label: "직접 입력", description: "Other" }
+      ],
+      multiSelect: false
+    }
+  ]
+})
+```
+
+#### 3-3. 조건부 트리거 (조건부 트리거 선택 시)
+
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      header: "트리거 조건",
+      question: "어떤 조건을 체크해야 하나요?",
+      options: [
+        { label: "Cookie 값 체크", description: "특정 Cookie 값일 때만" },
+        { label: "URL 조건", description: "특정 페이지에서만" },
+        { label: "Data Layer 값", description: "DL 변수 값 체크" },
+        { label: "JS 변수 값", description: "window 변수 체크" },
+        { label: "직접 입력", description: "Other" }
+      ],
+      multiSelect: true
+    }
+  ]
+})
+
+// Cookie 값 체크 선택 시
+AskUserQuestion({
+  questions: [
+    {
+      header: "Cookie 조건",
+      question: "Cookie 조건을 설정해주세요",
+      options: [
+        { label: "N일 때 발동", description: "Cookie가 N이면 발동 (1회만)" },
+        { label: "Y일 때 발동", description: "Cookie가 Y이면 발동" },
+        { label: "없을 때 발동", description: "Cookie 미존재 시 발동" },
+        { label: "직접 입력", description: "Other" }
+      ],
+      multiSelect: false
+    }
+  ]
+})
+```
+
+#### 3-4. Tag Sequencing (선택 시)
+
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      header: "태그 순서",
+      question: "태그 발동 순서를 설정해주세요",
+      options: [
+        { label: "Setup → Main", description: "설정 태그 먼저, 그 다음 메인 태그" },
+        { label: "Main → Cleanup", description: "메인 태그 후 정리 태그" },
+        { label: "Setup → Main → Cleanup", description: "전체 순서 지정" }
+      ],
+      multiSelect: false
+    }
+  ]
+})
+```
+
+**구현 예시 (qualified_visit):**
+
+| 순서 | 구성요소 | 이름 | 설명 |
+|------|----------|------|------|
+| 1 | 변수 | `Cookie - BDP Qualified Visit Event Fired` | Cookie 값 읽기 |
+| 2 | 설정 태그 | `cHTML - Set Qualified Visit Cookie` | Cookie를 Y로 설정 |
+| 3 | 트리거 | `CE - Qualified Visit` | event + Cookie=N 조건 |
+| 4 | 메인 태그 | `GA4 - Qualified - Visit` | GA4 이벤트 전송 |
+| 5 | Sequencing | 메인 태그 → 설정 태그 | 이벤트 후 Cookie 설정 |
+
+### Step 2.5-B: Event Settings Variable 확인 (GA4 선택 시)
+
+> 🚨 **GA4 Event 선택 시에만 실행** (Step 2.5-A와 독립적)
 
 ```javascript
 // GTM에서 기존 Event Settings Variable 패턴 확인
@@ -434,23 +573,28 @@ gtm_workspace({
 ├─ Level 1-1: Account + Container
 ├─ Level 1-2: Workspace (Container 선택 후)
 ├─ Level 2: 이벤트 정보 (Category, Action, Trigger, Tag Type)
-├─ Level 2.5-A: 구현 방식 논의 (복잡한 구현 필요 시)
-├─ Level 2.5-B: Event Settings Variable 확인 (GA4 선택 시)
-└─ Level 3: 구현 세부 설정 (Step 2.5 선택에 따라)
+├─ Level 2.5-A: 복잡한 구현 논의 (복잡한 구현 필요 시)
+│   └─ 구성요소 선택: 변수, 설정 태그, 조건부 트리거, Tag Sequencing
+├─ Level 3: 구성요소별 세부 설정 (2.5-A 선택에 따라)
+│   ├─ 3-1: 변수 설정 (Cookie/JS/DL)
+│   ├─ 3-2: 설정 태그 (Custom HTML)
+│   ├─ 3-3: 조건부 트리거 (Cookie/URL 조건)
+│   └─ 3-4: Tag Sequencing (발동 순서)
+└─ Level 2.5-B: Event Settings Variable 확인 (GA4 선택 시)
 
 1. event_name 추출 → 자동 분류 (Basic/Ecommerce/Custom)
 2. GTM 데이터 수집 (accounts, containers)
 3. AskUserQuestion (Account + Container)
 4. GTM workspace 조회 (선택된 container)
 5. AskUserQuestion (Workspace)
-6. GTM 패턴 분석 + 자동 분류 결과
+6. GTM 패턴 분석 + 자동 분류 결과 + Tag Type 패턴
 7. AskUserQuestion (Category + Action + Trigger + Tag Type)
 8. (조건부) 복잡한 구현 필요 시:
-   ├─ Step 2.5-A: 구현 방식 논의 (Cookie/Flag/복합/HTML)
-   └─ Step 3: 구현 세부 설정
+   ├─ Step 2.5-A: 구성요소 선택 (변수/설정태그/조건트리거/Sequencing)
+   └─ Step 3: 선택된 구성요소별 세부 설정
 9. (조건부) GA4 선택 시:
    └─ Step 2.5-B: Event Settings Variable 확인
-10. Sub-Agent spawn → 변수 → 트리거 → 태그 생성 → Description 업데이트
+10. Sub-Agent spawn → 변수 → 설정태그 → 트리거 → 메인태그 → Description 업데이트
 
 Trigger 유형:
 ├─ CE - dataLayer.push (단순)
