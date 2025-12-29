@@ -305,7 +305,16 @@ gtm_variable(action: "list") // 변수명
 gtm_variable(action: "create", ...)  // 변수 (필요시)
 gtm_trigger(action: "create", ...)   // 트리거
 gtm_tag(action: "create", ...)       // 태그
+
+// 4. 워크스페이스 description 업데이트 (생성 내역 기록)
+gtm_workspace(action: "get", workspaceId)  // 현재 fingerprint 조회
+gtm_workspace(action: "update", workspaceId, fingerprint, {
+  description: "{event_name} 이벤트 추가 | GTM Agent | {목적} | {날짜}"
+  // 또는 누적: 기존 description + 새 항목 추가
+})
 ```
+
+> ⚠️ **태그 생성 후 반드시 워크스페이스 description 업데이트**
 
 ---
 
