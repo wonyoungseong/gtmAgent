@@ -177,6 +177,17 @@ AskUserQuestion({
         { label: "기존 트리거 사용", description: "이미 있는 트리거" }
       ],
       multiSelect: false
+    },
+    {
+      header: "Tag Type",
+      question: "태그 타입을 선택해주세요",
+      options: [
+        { label: "GA4 Event", description: "Google Analytics 4 이벤트" },
+        { label: "Facebook Pixel", description: "Meta Pixel 이벤트" },
+        { label: "Google Ads", description: "Google Ads 전환/리마케팅" },
+        { label: "기타", description: "다른 태그 타입" }
+      ],
+      multiSelect: false
     }
   ]
 })
@@ -253,7 +264,33 @@ AskUserQuestion({
 })
 ```
 
-### Step 4: Sub-Agent Spawn (실행만)
+### Step 2.5: Event Settings Variable 확인 (GA4 선택 시)
+
+> 🚨 **GA4 Event 선택 시에만 실행**
+
+```javascript
+// GTM에서 기존 Event Settings Variable 패턴 확인
+gtm_variable({ action: "list", ... })
+// type: "gtes" (Google Tag Event Settings) 찾기
+
+// 있으면 사용자에게 확인
+AskUserQuestion({
+  questions: [{
+    header: "Event Settings",
+    question: "기존 Event Settings Variable을 사용할까요?",
+    options: [
+      { label: "{{GA4 - Event Settings}}", description: "기존 변수 사용 (Recommended)" },
+      { label: "사용 안 함", description: "Event Settings 없이 생성" },
+      { label: "새로 생성", description: "새 Event Settings Variable 생성" }
+    ],
+    multiSelect: false
+  }]
+})
+
+// 없으면 질문 스킵 (Event Settings 없이 생성)
+```
+
+### Step 3: Sub-Agent Spawn (실행만)
 
 모든 정보가 수집된 후 Sub-Agent spawn:
 
@@ -268,12 +305,15 @@ Task({
 - Account: BETC (6262702160)
 - Container: [EC]BETC_Web (202727037)
 - Workspace: Default Workspace (36)
+- workspaceId: 36  ← 🚨 description 업데이트에 필요
 
 ## 이벤트 정보 (수집 완료)
 - event_name: start_test_gtm
 - event_category: etc (소문자, GTM 패턴 따름)
 - event_action: start_test_gtm (소문자, GTM 패턴 따름)
 - trigger: Custom Event (dataLayer)
+- tag_type: GA4 Event  ← (GA4 Event / Facebook Pixel / Google Ads / 기타)
+- event_settings: {{GA4 - Event Settings}} 또는 null
 
 ## 작업 지시
 위 정보로 태그를 생성하세요.
@@ -286,6 +326,43 @@ Task({
 태그명, 트리거명 모두 Title Case + 약자 대문자:
 - snake_case → Title Case: start_test_gtm → Start Test Gtm
 - 약자는 대문자: etc → ETC, api → API, cta → CTA, ui → UI
+
+## ⚠️ Tag Type별 태그명 패턴
+- GA4 Event: GA4 - {Category} - {Action}
+- Facebook Pixel: FB - {Category} - {Action}
+- Google Ads: GADS - {Category} - {Action}
+- 기타: 사용자 지정
+
+## ⚠️ Event Settings Variable 규칙
+- event_settings가 null이면: Event Settings 파라미터 설정하지 않음
+- event_settings가 있으면: 해당 변수를 eventSettingsVariable로 설정
+
+## 🚨 필수: Workspace Description 업데이트
+태그 생성 완료 후 반드시 다음 단계 실행:
+
+\`\`\`javascript
+// 1. 현재 workspace 조회 (fingerprint 획득)
+gtm_workspace({ action: "get", accountId, containerId, workspaceId })
+
+// 2. description 업데이트
+gtm_workspace({
+  action: "update",
+  accountId,
+  containerId,
+  workspaceId,
+  fingerprint: "현재fingerprint",
+  createOrUpdateConfig: {
+    description: \`{event_name} 이벤트 추가 | GTM Agent | {날짜}
+
+목표: {비즈니스 목적}
+
+상세:
+- Parameters: event_category={값}, event_action={값}
+- 트리거 조건: event="{event_name}"
+- 특이사항: {변수, 조건 등}\`
+  }
+})
+\`\`\`
 
 ## 출력 요구사항
 생성 완료 후 반드시 다음 정보를 **상세하게** 출력:
@@ -317,6 +394,7 @@ Task({
 ## 규칙
 - 위 참조 파일들의 규칙을 반드시 따를 것
 - remove, publish 절대 금지
+- 🚨 태그 생성 완료 후 반드시 workspace description 업데이트
 `
 })
 ```
@@ -339,8 +417,9 @@ Task({
 질문 레벨 분리:
 ├─ Level 1-1: Account + Container
 ├─ Level 1-2: Workspace (Container 선택 후)
-├─ Level 2: 이벤트 정보 (Category, Action, Trigger)
-├─ Level 2.5: 구현 방식 논의 (복잡한 구현 필요 시)
+├─ Level 2: 이벤트 정보 (Category, Action, Trigger, Tag Type)
+├─ Level 2.5-A: 구현 방식 논의 (복잡한 구현 필요 시)
+├─ Level 2.5-B: Event Settings Variable 확인 (GA4 선택 시)
 └─ Level 3: 구현 세부 설정 (Step 2.5 선택에 따라)
 
 1. event_name 추출 → 자동 분류 (Basic/Ecommerce/Custom)
@@ -349,11 +428,13 @@ Task({
 4. GTM workspace 조회 (선택된 container)
 5. AskUserQuestion (Workspace)
 6. GTM 패턴 분석 + 자동 분류 결과
-7. AskUserQuestion (Category + Action + Trigger)
+7. AskUserQuestion (Category + Action + Trigger + Tag Type)
 8. (조건부) 복잡한 구현 필요 시:
-   ├─ Step 2.5: 구현 방식 논의 (Cookie/Flag/복합/HTML)
+   ├─ Step 2.5-A: 구현 방식 논의 (Cookie/Flag/복합/HTML)
    └─ Step 3: 구현 세부 설정
-9. Sub-Agent spawn → 변수 → 트리거 → 태그 생성
+9. (조건부) GA4 선택 시:
+   └─ Step 2.5-B: Event Settings Variable 확인
+10. Sub-Agent spawn → 변수 → 트리거 → 태그 생성 → Description 업데이트
 
 Trigger 유형:
 ├─ CE - dataLayer.push (단순)

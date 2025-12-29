@@ -122,7 +122,7 @@ const ECOMMERCE_EVENTS = ["purchase", "view_item", "add_to_cart", "remove_from_c
 // - Ecommerce: purchase, view_item 등
 // - Custom: 그 외 → GTM 패턴에서 category 추출
 
-// 2. AskUserQuestion (Category + Action + Trigger 한번에)
+// 2. AskUserQuestion (Category + Action + Trigger + Tag Type 한번에)
 AskUserQuestion({
   questions: [
     {
@@ -153,8 +153,38 @@ AskUserQuestion({
         { label: "기존 트리거 사용", description: "이미 있는 트리거" }
       ],
       multiSelect: false
+    },
+    {
+      header: "Tag Type",
+      question: "태그 타입을 선택해주세요",
+      options: [
+        { label: "GA4 Event", description: "Google Analytics 4 이벤트" },
+        { label: "Facebook Pixel", description: "Meta Pixel 이벤트" },
+        { label: "Google Ads", description: "Google Ads 전환/리마케팅" },
+        { label: "기타", description: "다른 태그 타입" }
+      ],
+      multiSelect: false
     }
   ]
+})
+
+// 3. GA4 선택 시: Event Settings Variable 확인
+// GTM에서 기존 Event Settings Variable 조회
+gtm_variable({ action: "list", ... })
+// type: "gtes" (Google Tag Event Settings) 찾기
+
+// 있으면 사용자에게 확인
+AskUserQuestion({
+  questions: [{
+    header: "Event Settings",
+    question: "기존 Event Settings Variable을 사용할까요?",
+    options: [
+      { label: "{{GA4 - Event Settings}}", description: "기존 변수 사용 (Recommended)" },
+      { label: "사용 안 함", description: "Event Settings 없이 생성" },
+      { label: "새로 생성", description: "새 Event Settings Variable 생성" }
+    ],
+    multiSelect: false
+  }]
 })
 ```
 
