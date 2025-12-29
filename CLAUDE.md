@@ -60,25 +60,20 @@ AskUserQuestion({
 ### Step 2: 패턴 분석 및 이벤트 정보 수집 (메인 Claude)
 
 ```javascript
-// 1. 선택된 환경에서 태그 조회하여 패턴 추출
+// 1. 선택된 환경에서 태그/트리거 조회하여 패턴 추출
 mcp__gtm__gtm_tag({ action: "list", accountId, containerId, workspaceId })
+mcp__gtm__gtm_trigger({ action: "list", accountId, containerId, workspaceId })
 
-// 태그명에서 category 패턴 추출:
-// "GA4 - Start Diagnosis - ..." → "Start Diagnosis"
-// "GA4 - Ecommerce - ..." → "Ecommerce"
+// 태그명에서 category 패턴 추출
+// 트리거에서 특수 조건 패턴 추출 (filter 조건이 있는 트리거 확인)
 
-// 2. AskUserQuestion (이벤트 정보 - GTM 패턴 기반)
+// 2. AskUserQuestion (이벤트 정보)
 AskUserQuestion({
   questions: [
     {
       header: "Category",
-      question: "event_category를 선택해주세요 (기존 패턴)",
-      options: [
-        { label: "Start Diagnosis", description: "15개 태그에서 사용" },
-        { label: "Ecommerce", description: "8개 태그에서 사용" },
-        { label: "ETC", description: "기타" },
-        { label: "새 카테고리", description: "직접 입력" }
-      ],
+      question: "event_category를 선택해주세요",
+      options: [/* GTM에서 추출한 패턴 */],
       multiSelect: false
     },
     {
@@ -86,7 +81,7 @@ AskUserQuestion({
       question: "트리거 방식을 선택해주세요",
       options: [
         { label: "CE - Custom Event (단순)", description: "dataLayer.push만 감지" },
-        { label: "CE - Custom Event + 조건", description: "Cookie/변수 조건 포함 (예: Qualified Visit)" },
+        { label: "CE - Custom Event + 조건", description: "Cookie/변수 조건 포함" },
         { label: "EV - Element Visibility", description: "요소 노출 감지" },
         { label: "CL - Click", description: "클릭 이벤트 감지" },
         { label: "기존 트리거 사용", description: "이미 있는 트리거 선택" }
@@ -97,7 +92,57 @@ AskUserQuestion({
 })
 ```
 
-### Step 3: Sub-Agent Spawn (실행만)
+### Step 3: 특수 트리거 조건 확인 (CE + 조건 선택 시)
+
+> 🚨 **"CE - Custom Event + 조건" 선택 시 반드시 실행**
+
+```javascript
+// 1. 기존 조건부 트리거 패턴 조회
+mcp__gtm__gtm_trigger({ action: "list", ... })
+// filter 조건이 있는 트리거 찾기:
+// - CE - Qualified Visit: Cookie 조건
+// - CE - Multi Host: Cookie 조건
+// - EV - Imported Content 50%: JS 변수 조건
+
+// 2. 기존 변수 조회 (필요한 변수 확인)
+mcp__gtm__gtm_variable({ action: "list", ... })
+
+// 3. AskUserQuestion (조건 상세)
+AskUserQuestion({
+  questions: [
+    {
+      header: "조건 타입",
+      question: "어떤 조건이 필요한가요?",
+      options: [
+        { label: "Cookie 체크", description: "쿠키 값으로 중복 방지 (예: Qualified Visit)" },
+        { label: "변수 체크", description: "JS/DL 변수 값 확인" },
+        { label: "기존 패턴 참조", description: "기존 조건부 트리거와 동일" }
+      ],
+      multiSelect: false
+    },
+    {
+      header: "기존 패턴",
+      question: "참조할 기존 트리거를 선택해주세요",
+      options: [
+        { label: "CE - Qualified Visit", description: "Cookie - BDP Qualified Visit Event Fired" },
+        { label: "CE - Multi Host", description: "Cookie - BDP Multi Host Event Fired" },
+        { label: "새 조건 생성", description: "직접 조건 정의" }
+      ],
+      multiSelect: false
+    }
+  ]
+})
+```
+
+**조건 생성 시 필요한 변수 확인:**
+```
+조건: Cookie 체크
+→ Cookie 변수 존재 여부 확인
+→ 없으면 Cookie 변수 먼저 생성
+→ 트리거 filter에 조건 추가
+```
+
+### Step 4: Sub-Agent Spawn (실행만)
 
 모든 정보가 수집된 후 Sub-Agent spawn:
 
@@ -169,13 +214,17 @@ Task({
 
 ```
 1. 키워드 감지 → GTM 작업 시작
-2. 메인 Claude: GTM 데이터 수집
-3. 메인 Claude: AskUserQuestion (환경 선택)
-4. 메인 Claude: GTM 패턴 분석
-5. 메인 Claude: AskUserQuestion (이벤트 정보)
-6. 메인 Claude: Sub-Agent spawn (모든 정보 포함)
-7. Sub-Agent: 태그 생성 실행 (질문 없이)
-8. Sub-Agent: 생성 전 사용자 승인
+2. 메인 Claude: GTM 데이터 수집 (accounts, containers, workspaces)
+3. 메인 Claude: AskUserQuestion (Step 1 - 환경 선택)
+4. 메인 Claude: GTM 패턴 분석 (tags, triggers에서 패턴 추출)
+5. 메인 Claude: AskUserQuestion (Step 2 - 이벤트 정보)
+6. (조건부) CE + 조건 선택 시:
+   - 기존 조건부 트리거 패턴 조회
+   - 필요 변수 확인
+   - AskUserQuestion (Step 3 - 조건 상세)
+7. 메인 Claude: Sub-Agent spawn (모든 정보 포함)
+8. Sub-Agent: 변수 → 트리거 → 태그 순서로 생성
+9. Sub-Agent: 생성 전 사용자 승인
 ```
 
 ---

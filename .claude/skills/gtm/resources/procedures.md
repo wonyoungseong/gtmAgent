@@ -120,6 +120,44 @@ gtm_trigger(action: "list", ...)
 // 없으면 생성: CE - {event_name}
 ```
 
+### Phase 3.5: 특수 조건 확인 (CE + 조건 선택 시)
+
+> 🚨 **"CE - Custom Event + 조건" 선택 시 반드시 실행**
+
+```javascript
+// 1. 기존 조건부 트리거 패턴 조회
+gtm_trigger(action: "list", ...)
+// filter 조건이 있는 트리거 찾기:
+// - CE - Qualified Visit: Cookie 조건
+// - CE - Multi Host: Cookie 조건
+
+// 2. 사용할 조건 패턴 확인
+// 예: Qualified Visit 패턴
+{
+  customEventFilter: [{ event: "qualified_visit" }],
+  filter: [{ variable: "{{Cookie - BDP Qualified Visit Event Fired}}", value: "N" }]
+}
+
+// 3. 필요 변수 존재 여부 확인
+gtm_variable(action: "list", ...)
+// Cookie 변수 있는지 확인
+
+// 4. 없으면 변수 먼저 생성
+gtm_variable(action: "create", {
+  name: "Cookie - BDP {Event} Event Fired",
+  type: "k",  // 1st Party Cookie
+  parameter: [{ key: "name", value: "bdp_{event}_fired" }]
+})
+```
+
+**조건부 트리거 생성 순서:**
+```
+1. 필요 변수 확인 (Cookie, JS, DL)
+2. 변수 없으면 먼저 생성
+3. 트리거 생성 시 filter에 변수 조건 추가
+4. 태그 생성
+```
+
 ### Phase 4: 태그 설정
 
 ```javascript
