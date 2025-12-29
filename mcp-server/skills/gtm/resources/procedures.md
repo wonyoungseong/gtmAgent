@@ -23,29 +23,24 @@ mcp__gtm__gtm_container({ action: "list", accountId: "..." })
 mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 ```
 
-### Step 2: AskUserQuestion 도구 호출 (3개 탭)
+### Step 2: AskUserQuestion (2단계로 분리)
 
 ```javascript
+// Step 2-1: Account + Container 선택
 AskUserQuestion({
   questions: [
-    {
-      header: "Account",
-      question: "GTM 계정을 선택해주세요",
-      options: [/* 조회된 계정 목록 */],
-      multiSelect: false
-    },
-    {
-      header: "Container",
-      question: "컨테이너를 선택해주세요",
-      options: [/* 조회된 컨테이너 목록 */],
-      multiSelect: false
-    },
-    {
-      header: "Workspace",
-      question: "워크스페이스를 선택해주세요",
-      options: [/* 조회된 워크스페이스 목록 */],
-      multiSelect: false
-    }
+    { header: "Account", question: "GTM 계정을 선택해주세요", options: [...], multiSelect: false },
+    { header: "Container", question: "컨테이너를 선택해주세요", options: [...], multiSelect: false }
+  ]
+})
+
+// Container 선택 후 → Workspace 조회
+mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
+
+// Step 2-2: Workspace 선택
+AskUserQuestion({
+  questions: [
+    { header: "Workspace", question: "워크스페이스를 선택해주세요", options: [...], multiSelect: false }
   ]
 })
 ```

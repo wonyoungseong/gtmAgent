@@ -14,19 +14,25 @@
 
 ## GTM 작업 처리 방법 (Add Event)
 
-### Step 1: 환경 선택 (메인 Claude)
+### Step 1: 환경 선택 (메인 Claude) - 2단계
 
 ```javascript
-// 1. GTM 데이터 수집 (병렬)
+// Step 1-1: Account + Container 선택
 mcp__gtm__gtm_account({ action: "list" })
-mcp__gtm__gtm_container({ action: "list", accountId: "..." })
-mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
+mcp__gtm__gtm_container({ action: "list", accountId: "..." })  // 모든 계정의 컨테이너
 
-// 2. AskUserQuestion (환경만 - 트리거 조건 묻지 않음!)
 AskUserQuestion({
   questions: [
     { header: "Account", question: "GTM 계정을 선택해주세요", options: [...], multiSelect: false },
-    { header: "Container", question: "컨테이너를 선택해주세요", options: [...], multiSelect: false },
+    { header: "Container", question: "컨테이너를 선택해주세요", options: [...], multiSelect: false }
+  ]
+})
+
+// Step 1-2: Workspace 선택 (Container 선택 후)
+mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })  // 선택된 컨테이너의 워크스페이스
+
+AskUserQuestion({
+  questions: [
     { header: "Workspace", question: "워크스페이스를 선택해주세요", options: [...], multiSelect: false }
   ]
 })
@@ -189,17 +195,20 @@ Task({
 
 ```
 질문 레벨 분리:
-├─ Level 1: 환경 (Account, Container, Workspace)
+├─ Level 1-1: Account + Container
+├─ Level 1-2: Workspace (Container 선택 후)
 ├─ Level 2: 이벤트 정보 (Category, Action, Trigger)
 └─ Level 3: 조건 상세 (CE - 조건 포함 시만)
 
 1. event_name 추출 → 자동 분류 (Basic/Ecommerce/Custom)
-2. GTM 데이터 수집
-3. AskUserQuestion (환경만)
-4. GTM 패턴 분석 + 자동 분류 결과
-5. AskUserQuestion (Category + Action + Trigger 한번에)
-6. (조건부) CE - 조건 포함 시 → AskUserQuestion (조건 패턴)
-7. Sub-Agent spawn → 변수 → 트리거 → 태그 생성
+2. GTM 데이터 수집 (accounts, containers)
+3. AskUserQuestion (Account + Container)
+4. GTM workspace 조회 (선택된 container)
+5. AskUserQuestion (Workspace)
+6. GTM 패턴 분석 + 자동 분류 결과
+7. AskUserQuestion (Category + Action + Trigger)
+8. (조건부) CE - 조건 포함 시 → AskUserQuestion (조건 패턴)
+9. Sub-Agent spawn → 변수 → 트리거 → 태그 생성
 ```
 
 ---
