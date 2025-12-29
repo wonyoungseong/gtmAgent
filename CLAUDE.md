@@ -22,11 +22,12 @@ mcp__gtm__gtm_account({ action: "list" })
 mcp__gtm__gtm_container({ action: "list", accountId: "..." })
 mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 
-// 2. AskUserQuestion (환경 선택)
+// 2. AskUserQuestion (환경 선택 - 3개 탭)
 AskUserQuestion({
   questions: [
-    { header: "Container", question: "컨테이너 선택", options: [...], multiSelect: false },
-    { header: "Workspace", question: "워크스페이스 선택", options: [...], multiSelect: false }
+    { header: "Account", question: "GTM 계정을 선택해주세요", options: [...], multiSelect: false },
+    { header: "Container", question: "컨테이너를 선택해주세요", options: [...], multiSelect: false },
+    { header: "Workspace", question: "워크스페이스를 선택해주세요", options: [...], multiSelect: false }
   ]
 })
 ```
