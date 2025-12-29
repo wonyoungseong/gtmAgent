@@ -33,9 +33,49 @@ mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })  // 선택�
 
 AskUserQuestion({
   questions: [
-    { header: "Workspace", question: "워크스페이스를 선택해주세요", options: [...], multiSelect: false }
+    {
+      header: "Workspace",
+      question: "워크스페이스를 선택해주세요",
+      options: [
+        // 기존 Workspace 목록
+        { label: "Default Workspace", description: "기존 워크스페이스" },
+        // ...
+        // 항상 마지막에 추가
+        { label: "새 Workspace 생성", description: "새로운 워크스페이스 생성" }
+      ],
+      multiSelect: false
+    }
   ]
 })
+
+// "새 Workspace 생성" 선택 시
+if (selectedWorkspace === "새 Workspace 생성") {
+  // Workspace 이름 입력 받기
+  AskUserQuestion({
+    questions: [
+      {
+        header: "Workspace 이름",
+        question: "새 워크스페이스 이름을 입력해주세요",
+        options: [
+          { label: "Add {event_name}", description: "이벤트 추가용 (Recommended)" },
+          { label: "직접 입력", description: "Other" }
+        ],
+        multiSelect: false
+      }
+    ]
+  })
+
+  // Workspace 생성
+  mcp__gtm__gtm_workspace({
+    action: "create",
+    accountId,
+    containerId,
+    createOrUpdateConfig: {
+      name: workspaceName,
+      description: "GTM Agent | {작업 설명} | {날짜}"
+    }
+  })
+}
 ```
 
 ### Step 2: 이벤트 자동 분류 및 정보 수집 (메인 Claude)

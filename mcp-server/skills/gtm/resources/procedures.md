@@ -40,9 +40,19 @@ mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 // Step 2-2: Workspace 선택
 AskUserQuestion({
   questions: [
-    { header: "Workspace", question: "워크스페이스를 선택해주세요", options: [...], multiSelect: false }
+    {
+      header: "Workspace",
+      question: "워크스페이스를 선택해주세요",
+      options: [
+        // 기존 Workspace 목록 + 항상 마지막에 "새 Workspace 생성" 추가
+        { label: "새 Workspace 생성", description: "새로운 워크스페이스 생성" }
+      ],
+      multiSelect: false
+    }
   ]
 })
+
+// "새 Workspace 생성" 선택 시 → 이름 입력 → gtm_workspace(action: "create")
 ```
 
 > 🚨 텍스트 테이블 출력 금지! 반드시 AskUserQuestion 도구 호출
