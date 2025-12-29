@@ -23,6 +23,7 @@ mcp__gtm__gtm_container({ action: "list", accountId: "..." })
 mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 
 // 2. AskUserQuestion (환경 선택 - 4개 탭)
+// Multi Container 선택 시: Account, Container 복수 선택 가능
 AskUserQuestion({
   questions: [
     {
@@ -38,19 +39,19 @@ AskUserQuestion({
       header: "Account",
       question: "GTM 계정을 선택해주세요",
       options: [...],
-      multiSelect: false
+      multiSelect: true  // Multi Container 시 여러 계정 선택 가능
     },
     {
       header: "Container",
       question: "컨테이너를 선택해주세요",
       options: [...],
-      multiSelect: true  // Multi Container 선택 시 여러 개 선택 가능
+      multiSelect: true  // Multi Container 시 여러 컨테이너 선택 가능
     },
     {
       header: "Workspace",
       question: "워크스페이스를 선택해주세요",
       options: [...],
-      multiSelect: false
+      multiSelect: false  // 각 컨테이너의 Default Workspace 사용
     }
   ]
 })
