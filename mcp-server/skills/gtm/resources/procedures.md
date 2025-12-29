@@ -23,38 +23,28 @@ mcp__gtm__gtm_container({ action: "list", accountId: "..." })
 mcp__gtm__gtm_workspace({ action: "list", accountId, containerId })
 ```
 
-### Step 2: AskUserQuestion 도구 호출 (4개 탭)
+### Step 2: AskUserQuestion 도구 호출 (3개 탭)
 
 ```javascript
-// Multi Container 선택 시: Account, Container 복수 선택 가능
 AskUserQuestion({
   questions: [
-    {
-      header: "Scope",
-      question: "작업 범위를 선택해주세요",
-      options: [
-        { label: "Single Container", description: "하나의 컨테이너에서 작업" },
-        { label: "Multi Container", description: "여러 컨테이너에 동일 작업 적용" }
-      ],
-      multiSelect: false
-    },
     {
       header: "Account",
       question: "GTM 계정을 선택해주세요",
       options: [/* 조회된 계정 목록 */],
-      multiSelect: true  // Multi Container 시 여러 계정 선택 가능
+      multiSelect: false
     },
     {
       header: "Container",
       question: "컨테이너를 선택해주세요",
       options: [/* 조회된 컨테이너 목록 */],
-      multiSelect: true  // Multi Container 시 여러 컨테이너 선택 가능
+      multiSelect: false
     },
     {
       header: "Workspace",
       question: "워크스페이스를 선택해주세요",
       options: [/* 조회된 워크스페이스 목록 */],
-      multiSelect: false  // 각 컨테이너의 Default Workspace 사용
+      multiSelect: false
     }
   ]
 })
