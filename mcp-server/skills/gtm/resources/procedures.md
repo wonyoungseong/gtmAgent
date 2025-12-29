@@ -122,7 +122,17 @@ const ECOMMERCE_EVENTS = ["purchase", "view_item", "add_to_cart", "remove_from_c
 // - Ecommerce: purchase, view_item 등
 // - Custom: 그 외 → GTM 패턴에서 category 추출
 
-// 2. AskUserQuestion (Category + Action + Trigger + Tag Type 한번에)
+// 2. Tag Type 패턴 추출 (태그명에서 prefix 분석)
+// 태그명 패턴: "{Prefix} - {Category} - {Action}"
+// 예시:
+//   "GA4 - Start Diagnosis - Popup" → prefix: "GA4"
+//   "FB - Conversion - Purchase" → prefix: "FB"
+//   "HTML - Custom Script" → prefix: "HTML"
+//   "cHTML - Tracking Code" → prefix: "cHTML"
+//
+// 발견된 prefix들을 카운트: GA4(25), FB(5), HTML(3)
+
+// 3. AskUserQuestion (Category + Action + Trigger + Tag Type 한번에)
 AskUserQuestion({
   questions: [
     {
@@ -156,12 +166,13 @@ AskUserQuestion({
     },
     {
       header: "Tag Type",
-      question: "태그 타입을 선택해주세요",
+      question: "태그 타입(prefix)을 선택해주세요",
       options: [
-        { label: "GA4 Event", description: "Google Analytics 4 이벤트" },
-        { label: "Facebook Pixel", description: "Meta Pixel 이벤트" },
-        { label: "Google Ads", description: "Google Ads 전환/리마케팅" },
-        { label: "기타", description: "다른 태그 타입" }
+        // GTM 패턴에서 추출한 prefix 목록 (가장 많이 사용된 순)
+        // 예: { label: "GA4", description: "25개 태그에서 사용 (Recommended)" }
+        //     { label: "FB", description: "5개 태그에서 사용" }
+        //     { label: "cHTML", description: "3개 태그에서 사용" }
+        { label: "직접 입력", description: "새로운 prefix 입력" }
       ],
       multiSelect: false
     }

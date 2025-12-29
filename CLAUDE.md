@@ -137,10 +137,25 @@ if (BASIC_EVENTS.includes(eventName)) {
 }
 
 // 2. GTM에서 기존 패턴 조회 (병렬)
-mcp__gtm__gtm_tag({ action: "list", ... })      // category 패턴
+mcp__gtm__gtm_tag({ action: "list", ... })      // category 패턴 + Tag Type 패턴
 mcp__gtm__gtm_trigger({ action: "list", ... })  // 기존 트리거 확인
 
-// 3. AskUserQuestion (Category + Action + Trigger 한번에)
+// 3. Tag Type 패턴 추출 (태그명에서 prefix 분석)
+// 태그명 패턴: "{Prefix} - {Category} - {Action}"
+// 예시:
+//   "GA4 - Start Diagnosis - Popup" → prefix: "GA4"
+//   "FB - Conversion - Purchase" → prefix: "FB"
+//   "GADS - Remarketing - ViewItem" → prefix: "GADS"
+//   "HTML - Custom Script" → prefix: "HTML"
+//   "cHTML - Tracking Code" → prefix: "cHTML"
+//
+// 발견된 prefix들을 카운트하여 옵션 생성:
+// 예: GA4(25), FB(5), HTML(3)
+
+const tagTypePrefixes = extractPrefixesFromTags(tags)
+// 결과: [{ prefix: "GA4", count: 25 }, { prefix: "FB", count: 5 }, ...]
+
+// 4. AskUserQuestion (Category + Action + Trigger + Tag Type 한번에)
 // autoCategory가 있으면 확인만, 없으면 선택
 AskUserQuestion({
   questions: [
@@ -180,12 +195,14 @@ AskUserQuestion({
     },
     {
       header: "Tag Type",
-      question: "태그 타입을 선택해주세요",
+      question: "태그 타입(prefix)을 선택해주세요",
       options: [
-        { label: "GA4 Event", description: "Google Analytics 4 이벤트" },
-        { label: "Facebook Pixel", description: "Meta Pixel 이벤트" },
-        { label: "Google Ads", description: "Google Ads 전환/리마케팅" },
-        { label: "기타", description: "다른 태그 타입" }
+        // GTM 패턴에서 추출한 prefix 목록 (가장 많이 사용된 순)
+        // 예: { label: "GA4", description: "25개 태그에서 사용 (Recommended)" }
+        //     { label: "FB", description: "5개 태그에서 사용" }
+        //     { label: "HTML", description: "3개 태그에서 사용" }
+        // + 항상 마지막에:
+        { label: "직접 입력", description: "새로운 prefix 입력" }
       ],
       multiSelect: false
     }
@@ -312,7 +329,7 @@ Task({
 - event_category: etc (소문자, GTM 패턴 따름)
 - event_action: start_test_gtm (소문자, GTM 패턴 따름)
 - trigger: Custom Event (dataLayer)
-- tag_type: GA4 Event  ← (GA4 Event / Facebook Pixel / Google Ads / 기타)
+- tag_type: GA4  ← GTM 패턴에서 추출 (예: GA4, FB, GADS, HTML, cHTML 등)
 - event_settings: {{GA4 - Event Settings}} 또는 null
 
 ## 작업 지시
@@ -328,10 +345,9 @@ Task({
 - 약자는 대문자: etc → ETC, api → API, cta → CTA, ui → UI
 
 ## ⚠️ Tag Type별 태그명 패턴
-- GA4 Event: GA4 - {Category} - {Action}
-- Facebook Pixel: FB - {Category} - {Action}
-- Google Ads: GADS - {Category} - {Action}
-- 기타: 사용자 지정
+태그명 패턴: {tag_type} - {Category} - {Action}
+- tag_type은 GTM 패턴에서 추출된 prefix 사용 (예: GA4, FB, GADS, HTML, cHTML 등)
+- 예시: GA4 - ETC - Start Camera, FB - Conversion - Purchase, cHTML - Tracking Script
 
 ## ⚠️ Event Settings Variable 규칙
 - event_settings가 null이면: Event Settings 파라미터 설정하지 않음
