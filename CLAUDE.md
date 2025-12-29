@@ -97,8 +97,28 @@ Task({
 - **사용자에게 추가 질문하지 말 것!**
 - 생성 전 사용자 승인만 받을 것
 
+## 출력 요구사항
+생성 완료 후 반드시 다음 정보를 **상세하게** 출력:
+
+1. **생성된 트리거 정보** (테이블)
+   - 이름, ID, 타입, 이벤트명
+
+2. **생성된 태그 정보** (테이블)
+   - 이름, ID, 타입, 이벤트명, Measurement ID
+   - Parameters (event_category, event_action 등)
+
+3. **GTM Links** (클릭 가능한 URL)
+   - 트리거 URL
+   - 태그 URL
+
+4. **테스트 방법**
+   - dataLayer.push 코드 예시
+
+5. **다음 단계**
+   - Preview 모드 → DebugView → Publish
+
 ## 규칙
-- .claude/skills/gtm/SKILL.md 참조
+- .claude/skills/gtm/SKILL.md의 Output Format 참조
 - remove, publish 절대 금지
 `
 })

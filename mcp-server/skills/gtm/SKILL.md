@@ -73,6 +73,59 @@ language: Korean
 
 ---
 
+## Output Format (생성 완료 시)
+
+```markdown
+## 생성 완료
+
+### 트리거
+| 항목 | 값 |
+|------|-----|
+| 이름 | CE - {event_name} |
+| ID | {triggerId} |
+| 타입 | Custom Event |
+| 이벤트명 | {event_name} |
+
+### 태그
+| 항목 | 값 |
+|------|-----|
+| 이름 | GA4 - {category} - {action} |
+| ID | {tagId} |
+| 타입 | GA4 Event |
+| 이벤트명 | {event_name} |
+| Measurement ID | {{GA4 - Measurement ID}} |
+
+### Parameters
+| Key | Value |
+|-----|-------|
+| event_category | {category} |
+| event_action | {action} |
+| event_label | (선택) |
+
+---
+
+## GTM Links
+- 트리거: https://tagmanager.google.com/#/container/accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}/triggers/{triggerId}
+- 태그: https://tagmanager.google.com/#/container/accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}/tags/{tagId}
+
+---
+
+## 테스트 방법
+
+```javascript
+dataLayer.push({ event: '{event_name}' });
+```
+
+---
+
+## 다음 단계
+1. GTM Preview 모드에서 태그 발동 확인
+2. GA4 DebugView에서 이벤트 수신 확인
+3. 테스트 완료 후 Publish
+```
+
+---
+
 ## 상세 절차
 
 **[procedures.md](resources/procedures.md)** 참조:
