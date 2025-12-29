@@ -99,7 +99,8 @@ event_category 확인
 ### 카테고리/액션 값 변환
 
 - **원본 값**: snake_case (GA4 표준)
-- **태그명 표기**: 첫글자 대문자, 나머지 소문자, 언더스코어 유지 또는 공백으로 변환
+- **태그명 표기**: Title Case (첫글자 대문자)
+- **⚠️ 약자는 전체 대문자 유지**
 
 | 원본 값 | 태그명 표기 |
 |---------|-------------|
@@ -107,18 +108,40 @@ event_category 확인
 | `popup_impressions` | `Popup Impressions` |
 | `ecommerce` | `Ecommerce` |
 | `page_view` | `Page View` |
+| `etc` | `ETC` ← 약자 |
+| `api` | `API` ← 약자 |
+| `cta` | `CTA` ← 약자 |
+| `ui` | `UI` ← 약자 |
+| `url` | `URL` ← 약자 |
+| `id` | `ID` ← 약자 |
+| `seo` | `SEO` ← 약자 |
+| `bts` | `BTS` ← 약자/브랜드 |
+
+### 약자 목록 (대문자 유지)
+
+```
+ETC, API, CTA, UI, UX, URL, ID, SEO, PPC, BTS, GA4, GTM
+```
 
 ### 변환 규칙
 
 ```python
+ACRONYMS = {'etc', 'api', 'cta', 'ui', 'ux', 'url', 'id', 'seo', 'ppc', 'bts', 'ga4', 'gtm'}
+
 def format_tag_name_part(value):
-    # snake_case → Title Case with spaces
     words = value.split('_')
-    return ' '.join(word.capitalize() for word in words)
+    result = []
+    for word in words:
+        if word.lower() in ACRONYMS:
+            result.append(word.upper())  # 약자는 대문자
+        else:
+            result.append(word.capitalize())  # 일반 단어는 Title Case
+    return ' '.join(result)
 
 # 예시:
 # start_diagnosis → Start Diagnosis
-# popup_impressions → Popup Impressions
+# etc → ETC
+# cta_click → CTA Click
 ```
 
 ---
