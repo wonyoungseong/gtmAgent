@@ -40,6 +40,14 @@ interface OAuth2Token {
   expiry_date?: number;
 }
 
+interface AccessTokenData {
+  access_token: string;
+  refresh_token?: string;
+  expiry_date?: number;
+  client_id?: string;
+  client_secret?: string;
+}
+
 // Get the directory where this module is located
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -52,6 +60,7 @@ const SERVICE_ACCOUNT_PATH = join(CONFIG_DIR, "credentials.json");
 const OAUTH2_CREDENTIALS_PATH = join(CONFIG_DIR, "oauth2-credentials.json");
 const OAUTH2_TOKEN_PATH = join(CONFIG_DIR, "oauth2-token.json");
 const ACCESS_TOKEN_PATH = join(CONFIG_DIR, "access-token.txt");
+const ACCESS_TOKEN_JSON_PATH = join(CONFIG_DIR, "access-token.json");
 
 // OAuth2 Scopes
 const SCOPES = [
@@ -190,22 +199,46 @@ function saveOAuth2Token(token: OAuth2Token): void {
   console.error(`[GTM MCP] OAuth2 token saved to ${OAUTH2_TOKEN_PATH}`);
 }
 
-// Load access token directly (from env or file)
-function loadAccessToken(): string | null {
-  // 1. Environment variable (highest priority)
+// Load access token data (from env or file - supports both txt and json formats)
+function loadAccessTokenData(): AccessTokenData | null {
+  // 1. Environment variable (highest priority) - JSON format
+  const envTokenJson = process.env.GTM_ACCESS_TOKEN_JSON;
+  if (envTokenJson) {
+    try {
+      const data = JSON.parse(envTokenJson);
+      console.error("[GTM MCP] Using access token from GTM_ACCESS_TOKEN_JSON environment variable");
+      return data;
+    } catch {
+      console.error("[GTM MCP] Invalid JSON in GTM_ACCESS_TOKEN_JSON");
+    }
+  }
+
+  // 2. Environment variable - plain token (legacy)
   const envToken = process.env.GTM_ACCESS_TOKEN;
   if (envToken) {
     console.error("[GTM MCP] Using access token from GTM_ACCESS_TOKEN environment variable");
-    return envToken.trim();
+    return { access_token: envToken.trim() };
   }
 
-  // 2. File
+  // 3. JSON file (preferred - supports refresh)
+  if (existsSync(ACCESS_TOKEN_JSON_PATH)) {
+    try {
+      const content = readFileSync(ACCESS_TOKEN_JSON_PATH, "utf-8");
+      const data = JSON.parse(content);
+      console.error(`[GTM MCP] Using access token from ${ACCESS_TOKEN_JSON_PATH}`);
+      return data;
+    } catch (error) {
+      console.error(`[GTM MCP] Failed to load access token JSON: ${error}`);
+    }
+  }
+
+  // 4. Plain text file (legacy - no refresh support)
   if (existsSync(ACCESS_TOKEN_PATH)) {
     try {
       const token = readFileSync(ACCESS_TOKEN_PATH, "utf-8").trim();
       if (token) {
-        console.error(`[GTM MCP] Using access token from ${ACCESS_TOKEN_PATH}`);
-        return token;
+        console.error(`[GTM MCP] Using access token from ${ACCESS_TOKEN_PATH} (no refresh support)`);
+        return { access_token: token };
       }
     } catch (error) {
       console.error(`[GTM MCP] Failed to load access token: ${error}`);
@@ -215,13 +248,28 @@ function loadAccessToken(): string | null {
   return null;
 }
 
-// Save access token to file
+// Legacy function for backward compatibility
+function loadAccessToken(): string | null {
+  const data = loadAccessTokenData();
+  return data?.access_token || null;
+}
+
+// Save access token to file (legacy - plain text)
 export function saveAccessToken(token: string): void {
   if (!existsSync(CONFIG_DIR)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
   writeFileSync(ACCESS_TOKEN_PATH, token.trim());
   console.error(`[GTM MCP] Access token saved to ${ACCESS_TOKEN_PATH}`);
+}
+
+// Save access token data to JSON file (supports refresh)
+export function saveAccessTokenData(data: AccessTokenData): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+  writeFileSync(ACCESS_TOKEN_JSON_PATH, JSON.stringify(data, null, 2));
+  console.error(`[GTM MCP] Access token data saved to ${ACCESS_TOKEN_JSON_PATH}`);
 }
 
 async function createServiceAccountClient(): Promise<TagManagerClient | null> {
@@ -319,18 +367,83 @@ async function createOAuth2Client(): Promise<TagManagerClient | null> {
   return null;
 }
 
-// Create client with direct access token
+// Create client with direct access token (with optional refresh support)
 async function createAccessTokenClient(): Promise<TagManagerClient | null> {
-  const accessToken = loadAccessToken();
-  if (!accessToken) {
+  const tokenData = loadAccessTokenData();
+  if (!tokenData) {
     return null;
   }
 
   try {
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({
-      access_token: accessToken,
-    });
+    // If we have client credentials, we can create a proper OAuth2 client with refresh
+    const hasRefreshCapability = tokenData.refresh_token && tokenData.client_id && tokenData.client_secret;
+
+    let oauth2Client: InstanceType<typeof google.auth.OAuth2>;
+
+    if (hasRefreshCapability) {
+      oauth2Client = new google.auth.OAuth2(
+        tokenData.client_id,
+        tokenData.client_secret
+      );
+
+      oauth2Client.setCredentials({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expiry_date: tokenData.expiry_date,
+      });
+
+      // Check if token is expired and refresh if needed
+      const isExpired = tokenData.expiry_date && tokenData.expiry_date < Date.now();
+      if (isExpired) {
+        console.error("[GTM MCP] Access token expired, attempting refresh...");
+        try {
+          const { credentials: newCredentials } = await oauth2Client.refreshAccessToken();
+          const updatedData: AccessTokenData = {
+            access_token: newCredentials.access_token!,
+            refresh_token: newCredentials.refresh_token || tokenData.refresh_token,
+            expiry_date: newCredentials.expiry_date!,
+            client_id: tokenData.client_id,
+            client_secret: tokenData.client_secret,
+          };
+          saveAccessTokenData(updatedData);
+          oauth2Client.setCredentials(updatedData);
+          console.error("[GTM MCP] Access token refreshed successfully");
+        } catch (refreshError) {
+          console.error(`[GTM MCP] Failed to refresh access token: ${refreshError}`);
+          return null;
+        }
+      }
+
+      // Set up automatic token refresh on expiry
+      oauth2Client.on('tokens', (tokens) => {
+        if (tokens.access_token) {
+          const updatedData: AccessTokenData = {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token || tokenData.refresh_token,
+            expiry_date: tokens.expiry_date ?? undefined,
+            client_id: tokenData.client_id,
+            client_secret: tokenData.client_secret,
+          };
+          saveAccessTokenData(updatedData);
+          console.error("[GTM MCP] Access token auto-refreshed and saved");
+        }
+      });
+
+      console.error("[GTM MCP] Authenticated with access token (refresh enabled)");
+    } else {
+      // No refresh capability - simple access token mode
+      oauth2Client = new google.auth.OAuth2();
+      oauth2Client.setCredentials({
+        access_token: tokenData.access_token,
+      });
+
+      if (!tokenData.refresh_token) {
+        console.error("[GTM MCP] Warning: No refresh_token - token cannot be auto-refreshed");
+        console.error("[GTM MCP] Consider using access-token.json with refresh_token, client_id, client_secret");
+      }
+
+      console.error("[GTM MCP] Authenticated with direct access token (no refresh)");
+    }
 
     const client = google.tagmanager({
       version: "v2",
@@ -338,7 +451,6 @@ async function createAccessTokenClient(): Promise<TagManagerClient | null> {
     });
 
     authType = "access-token";
-    console.error("[GTM MCP] Authenticated with direct access token");
     return client;
   } catch (error) {
     console.error(`[GTM MCP] Access token authentication failed: ${error}`);
@@ -533,4 +645,4 @@ export async function performOAuth2Flow(): Promise<boolean> {
   });
 }
 
-export { CONFIG_DIR, OAUTH2_CREDENTIALS_PATH, OAUTH2_TOKEN_PATH, SERVICE_ACCOUNT_PATH, ACCESS_TOKEN_PATH, SCOPES };
+export { CONFIG_DIR, OAUTH2_CREDENTIALS_PATH, OAUTH2_TOKEN_PATH, SERVICE_ACCOUNT_PATH, ACCESS_TOKEN_PATH, ACCESS_TOKEN_JSON_PATH, SCOPES };

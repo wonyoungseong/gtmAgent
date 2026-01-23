@@ -13,11 +13,15 @@ export declare function registerAllTools(): ({
                 type: string;
                 description: string;
             };
-            config: {
+            containerId: {
                 type: string;
                 description: string;
             };
-            containerId?: undefined;
+            workspaceId: {
+                type: string;
+                description: string;
+            };
+            config?: undefined;
             destinationId?: undefined;
             createOrUpdateConfig?: undefined;
             fingerprint?: undefined;
@@ -25,7 +29,61 @@ export declare function registerAllTools(): ({
             moveTagIdConfig?: undefined;
             page?: undefined;
             itemsPerPage?: undefined;
+            entity?: undefined;
+            changeStatus?: undefined;
+            tagId?: undefined;
+            refresh?: undefined;
+            triggerId?: undefined;
+            variableId?: undefined;
+            containerVersionId?: undefined;
+            resourceType?: undefined;
+            includeSummary?: undefined;
+            type?: undefined;
+            types?: undefined;
+            pageToken?: undefined;
+            clientId?: undefined;
+            allowUserPermissionFeatureUpdate?: undefined;
+            environmentId?: undefined;
+            folderId?: undefined;
+            gtagConfigId?: undefined;
+            templateId?: undefined;
+            transformationId?: undefined;
+            userPermissionId?: undefined;
+            includeDeleted?: undefined;
+            zoneId?: undefined;
+            versionType?: undefined;
+            outputPath?: undefined;
+        };
+        required: string[];
+    };
+} | {
+    name: string;
+    description: string;
+    inputSchema: {
+        type: string;
+        properties: {
+            action: {
+                type: string;
+                enum: string[];
+                description: string;
+            };
+            accountId: {
+                type: string;
+                description: string;
+            };
+            config: {
+                type: string;
+                description: string;
+            };
+            containerId?: undefined;
             workspaceId?: undefined;
+            destinationId?: undefined;
+            createOrUpdateConfig?: undefined;
+            fingerprint?: undefined;
+            combineConfig?: undefined;
+            moveTagIdConfig?: undefined;
+            page?: undefined;
+            itemsPerPage?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -103,8 +161,8 @@ export declare function registerAllTools(): ({
                 default: number;
                 maximum?: undefined;
             };
-            config?: undefined;
             workspaceId?: undefined;
+            config?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -506,11 +564,11 @@ export declare function registerAllTools(): ({
                 default: boolean;
                 description: string;
             };
+            workspaceId?: undefined;
             config?: undefined;
             destinationId?: undefined;
             combineConfig?: undefined;
             moveTagIdConfig?: undefined;
-            workspaceId?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -728,12 +786,12 @@ export declare function registerAllTools(): ({
                 maximum: number;
                 description?: undefined;
             };
+            workspaceId?: undefined;
             config?: undefined;
             createOrUpdateConfig?: undefined;
             fingerprint?: undefined;
             combineConfig?: undefined;
             moveTagIdConfig?: undefined;
-            workspaceId?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -802,11 +860,11 @@ export declare function registerAllTools(): ({
                 maximum: number;
                 description?: undefined;
             };
+            workspaceId?: undefined;
             config?: undefined;
             destinationId?: undefined;
             combineConfig?: undefined;
             moveTagIdConfig?: undefined;
-            workspaceId?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -1189,13 +1247,13 @@ export declare function registerAllTools(): ({
                 maximum: number;
                 description?: undefined;
             };
-            config?: undefined;
             containerId?: undefined;
+            workspaceId?: undefined;
+            config?: undefined;
             destinationId?: undefined;
             fingerprint?: undefined;
             combineConfig?: undefined;
             moveTagIdConfig?: undefined;
-            workspaceId?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -1256,13 +1314,13 @@ export declare function registerAllTools(): ({
                 maximum: number;
                 description?: undefined;
             };
+            workspaceId?: undefined;
             config?: undefined;
             destinationId?: undefined;
             createOrUpdateConfig?: undefined;
             fingerprint?: undefined;
             combineConfig?: undefined;
             moveTagIdConfig?: undefined;
-            workspaceId?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -1437,8 +1495,9 @@ export declare function registerAllTools(): ({
         properties: {
             action?: undefined;
             accountId?: undefined;
-            config?: undefined;
             containerId?: undefined;
+            workspaceId?: undefined;
+            config?: undefined;
             destinationId?: undefined;
             createOrUpdateConfig?: undefined;
             fingerprint?: undefined;
@@ -1446,7 +1505,6 @@ export declare function registerAllTools(): ({
             moveTagIdConfig?: undefined;
             page?: undefined;
             itemsPerPage?: undefined;
-            workspaceId?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
@@ -1473,64 +1531,6 @@ export declare function registerAllTools(): ({
             outputPath?: undefined;
         };
         required: never[];
-    };
-} | {
-    name: string;
-    description: string;
-    inputSchema: {
-        type: string;
-        properties: {
-            action: {
-                type: string;
-                enum: string[];
-                description: string;
-            };
-            accountId: {
-                type: string;
-                description: string;
-            };
-            containerId: {
-                type: string;
-                description: string;
-            };
-            workspaceId: {
-                type: string;
-                description: string;
-            };
-            config?: undefined;
-            destinationId?: undefined;
-            createOrUpdateConfig?: undefined;
-            fingerprint?: undefined;
-            combineConfig?: undefined;
-            moveTagIdConfig?: undefined;
-            page?: undefined;
-            itemsPerPage?: undefined;
-            entity?: undefined;
-            changeStatus?: undefined;
-            tagId?: undefined;
-            refresh?: undefined;
-            triggerId?: undefined;
-            variableId?: undefined;
-            containerVersionId?: undefined;
-            resourceType?: undefined;
-            includeSummary?: undefined;
-            type?: undefined;
-            types?: undefined;
-            pageToken?: undefined;
-            clientId?: undefined;
-            allowUserPermissionFeatureUpdate?: undefined;
-            environmentId?: undefined;
-            folderId?: undefined;
-            gtagConfigId?: undefined;
-            templateId?: undefined;
-            transformationId?: undefined;
-            userPermissionId?: undefined;
-            includeDeleted?: undefined;
-            zoneId?: undefined;
-            versionType?: undefined;
-            outputPath?: undefined;
-        };
-        required: string[];
     };
 })[];
 export declare function handleToolCall(name: string, args: Record<string, unknown>): Promise<{

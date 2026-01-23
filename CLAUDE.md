@@ -7,9 +7,53 @@ Sub-Agent는 AskUserQuestion 도구에 접근할 수 없습니다.
 모든 사용자 질문은 메인 Claude가 AskUserQuestion으로 처리하세요.
 </important>
 
+<context_setup>
+## 컨텍스트 설정 (필수 - 모든 GTM 작업 전에 실행)
+
+GTM 작업을 시작하기 전에 **반드시 gtm_context로 환경을 먼저 설정**하세요.
+한 번 설정하면 이후 모든 도구 호출에서 accountId/containerId/workspaceId를 생략할 수 있습니다.
+
+### 워크플로우
+```javascript
+// 1. Account 목록 조회
+gtm_account({ action: "list" })
+// → AskUserQuestion으로 Account 선택
+
+// 2. Container 목록 조회
+gtm_container({ action: "list", accountId: "선택된ID" })
+// → AskUserQuestion으로 Container 선택
+
+// 3. Workspace 목록 조회
+gtm_workspace({ action: "list", accountId: "...", containerId: "..." })
+// → AskUserQuestion으로 Workspace 선택
+
+// 4. 컨텍스트 설정 (한 번만 실행)
+gtm_context({
+  action: "set",
+  accountId: "선택된ID",
+  containerId: "선택된ID",
+  workspaceId: "선택된ID"
+})
+
+// 5. 이후 모든 도구 호출에서 ID 생략 가능!
+gtm_tag({ action: "list" })  // accountId, containerId, workspaceId 자동 사용
+gtm_trigger({ action: "list" })
+gtm_variable({ action: "list" })
+```
+
+### 컨텍스트 확인/초기화
+```javascript
+// 현재 컨텍스트 확인
+gtm_context({ action: "get" })
+
+// 컨텍스트 초기화 (다른 컨테이너로 전환 시)
+gtm_context({ action: "clear" })
+```
+</context_setup>
+
 <workflow name="Add Event">
 
-<step number="1" title="환경 선택 (메인 Claude)">
+<step number="1" title="환경 선택 및 컨텍스트 설정 (메인 Claude)">
 1-1. Account + Container 선택
 ```javascript
 gtm_account({ action: "list" })
@@ -38,6 +82,18 @@ if (workspaces.length < 3) {
     options: [...existingWorkspaces]  // 생성 옵션 없음
   })
 }
+```
+
+1-3. **컨텍스트 설정 (Workspace 선택 후 필수!)**
+```javascript
+// 선택된 환경을 컨텍스트에 저장
+gtm_context({
+  action: "set",
+  accountId: "선택된accountId",
+  containerId: "선택된containerId",
+  workspaceId: "선택된workspaceId"
+})
+// 이후 모든 gtm_tag, gtm_trigger 등에서 ID 생략 가능
 ```
 </step>
 

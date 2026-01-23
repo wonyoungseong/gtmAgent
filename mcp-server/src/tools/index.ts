@@ -1,4 +1,4 @@
-import { getTagManagerClient, createErrorResponse, log } from "../utils/index.js";
+import { getTagManagerClient, createErrorResponse, log, clearCachedClient } from "../utils/index.js";
 import {
   paginateArray,
   processVersionData
@@ -15,6 +15,77 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 
+// ==================== Session Context ====================
+// 현재 선택된 Account/Container/Workspace를 저장하는 세션 컨텍스트
+interface SessionContext {
+  accountId: string | null;
+  accountName: string | null;
+  containerId: string | null;
+  containerName: string | null;
+  containerPublicId: string | null;
+  workspaceId: string | null;
+  workspaceName: string | null;
+}
+
+let sessionContext: SessionContext = {
+  accountId: null,
+  accountName: null,
+  containerId: null,
+  containerName: null,
+  containerPublicId: null,
+  workspaceId: null,
+  workspaceName: null,
+};
+
+// 컨텍스트에서 ID를 가져오거나, 파라미터가 없으면 에러 메시지 생성
+function getAccountId(args: Record<string, unknown>): string {
+  const id = (args.accountId as string) || sessionContext.accountId;
+  if (!id) {
+    throw new Error("accountId가 필요합니다. gtm_context로 먼저 환경을 설정하거나, accountId를 직접 전달하세요.");
+  }
+  return id;
+}
+
+function getContainerId(args: Record<string, unknown>): string {
+  const id = (args.containerId as string) || sessionContext.containerId;
+  if (!id) {
+    throw new Error("containerId가 필요합니다. gtm_context로 먼저 환경을 설정하거나, containerId를 직접 전달하세요.");
+  }
+  return id;
+}
+
+function getWorkspaceId(args: Record<string, unknown>): string {
+  const id = (args.workspaceId as string) || sessionContext.workspaceId;
+  if (!id) {
+    throw new Error("workspaceId가 필요합니다. gtm_context로 먼저 환경을 설정하거나, workspaceId를 직접 전달하세요.");
+  }
+  return id;
+}
+
+// 컨텍스트 상태를 포맷팅
+function formatContextStatus(): string {
+  if (!sessionContext.accountId) {
+    return "컨텍스트가 설정되지 않았습니다. gtm_context action='set'으로 환경을 설정하세요.";
+  }
+
+  let status = `현재 컨텍스트:\n`;
+  status += `- Account: ${sessionContext.accountName || sessionContext.accountId} (${sessionContext.accountId})\n`;
+
+  if (sessionContext.containerId) {
+    status += `- Container: ${sessionContext.containerName || sessionContext.containerId}`;
+    if (sessionContext.containerPublicId) {
+      status += ` [${sessionContext.containerPublicId}]`;
+    }
+    status += ` (${sessionContext.containerId})\n`;
+  }
+
+  if (sessionContext.workspaceId) {
+    status += `- Workspace: ${sessionContext.workspaceName || sessionContext.workspaceId} (${sessionContext.workspaceId})\n`;
+  }
+
+  return status;
+}
+
 // Page sizes matching Stape MCP
 const TAG_PAGE_SIZE = 20;
 const TRIGGER_PAGE_SIZE = 20;
@@ -26,6 +97,43 @@ const DEFAULT_PAGE_SIZE = 50;
 
 // Tool definitions matching Stape MCP exactly
 const tools = [
+  // ==================== gtm_context ====================
+  {
+    name: "gtm_context",
+    description: `GTM 작업 환경(컨텍스트)을 관리합니다. 한 번 설정하면 이후 모든 도구 호출에서 accountId/containerId/workspaceId를 자동으로 사용합니다.
+
+**권장 워크플로우:**
+1. gtm_context action='set' → Account/Container/Workspace 선택
+2. 이후 gtm_tag, gtm_trigger 등 호출 시 ID 생략 가능
+
+**액션:**
+- 'get': 현재 설정된 컨텍스트 조회
+- 'set': 컨텍스트 설정 (accountId 필수, containerId/workspaceId 선택)
+- 'clear': 컨텍스트 초기화`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["get", "set", "clear"],
+          description: "get: 현재 컨텍스트 조회, set: 컨텍스트 설정, clear: 컨텍스트 초기화",
+        },
+        accountId: {
+          type: "string",
+          description: "설정할 Account ID (set 액션에서 필수)",
+        },
+        containerId: {
+          type: "string",
+          description: "설정할 Container ID (set 액션에서 선택)",
+        },
+        workspaceId: {
+          type: "string",
+          description: "설정할 Workspace ID (set 액션에서 선택)",
+        },
+      },
+      required: ["action"],
+    },
+  },
   // ==================== gtm_account ====================
   {
     name: "gtm_account",
@@ -53,7 +161,7 @@ const tools = [
   // ==================== gtm_container ====================
   {
     name: "gtm_container",
-    description: `Performs container-related operations: get, list, combine, lookup, moveTagId, snippet. The 'list' action returns up to itemsPerPage items per page. NOTE: create/update/remove actions are disabled for safety.`,
+    description: `Performs container-related operations: get, list, combine, lookup, moveTagId, snippet. The 'list' action returns up to itemsPerPage items per page. NOTE: create/update/remove actions are disabled for safety. **컨텍스트 지원**: gtm_context로 설정한 accountId/containerId를 자동으로 사용합니다.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -64,11 +172,11 @@ const tools = [
         },
         accountId: {
           type: "string",
-          description: "The unique ID of the GTM Account containing the container.",
+          description: "The unique ID of the GTM Account. 생략 시 gtm_context에서 자동 사용.",
         },
         containerId: {
           type: "string",
-          description: "The unique ID of the GTM Container. Required for 'get', 'update', 'remove', 'combine', 'lookup', 'moveTagId', and 'snippet' actions.",
+          description: "The unique ID of the GTM Container. 생략 시 gtm_context에서 자동 사용.",
         },
         destinationId: {
           type: "string",
@@ -101,13 +209,13 @@ const tools = [
           default: DEFAULT_PAGE_SIZE,
         },
       },
-      required: ["action", "accountId"],
+      required: ["action"],  // accountId는 gtm_context에서 자동 사용 가능
     },
   },
   // ==================== gtm_workspace ====================
   {
     name: "gtm_workspace",
-    description: `Performs various workspace operations including create, get, list, update, remove, createVersion, getStatus, sync, quickPreview, and resolveConflict actions. The 'list' action returns up to ${DEFAULT_PAGE_SIZE} items per page.`,
+    description: `Performs various workspace operations including create, get, list, update, remove, createVersion, getStatus, sync, quickPreview, and resolveConflict actions. The 'list' action returns up to ${DEFAULT_PAGE_SIZE} items per page. **컨텍스트 지원**: gtm_context로 설정한 ID들을 자동으로 사용합니다.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -118,15 +226,15 @@ const tools = [
         },
         accountId: {
           type: "string",
-          description: "The unique ID of the GTM Account containing the workspace.",
+          description: "The unique ID of the GTM Account. 생략 시 gtm_context에서 자동 사용.",
         },
         containerId: {
           type: "string",
-          description: "The unique ID of the GTM Container containing the workspace.",
+          description: "The unique ID of the GTM Container. 생략 시 gtm_context에서 자동 사용.",
         },
         workspaceId: {
           type: "string",
-          description: "The unique ID of the GTM Workspace. Required for all actions except 'create' and 'list'.",
+          description: "The unique ID of the GTM Workspace. 생략 시 gtm_context에서 자동 사용. 일부 액션에서 필수.",
         },
         createOrUpdateConfig: {
           type: "object",
@@ -147,13 +255,13 @@ const tools = [
         page: { type: "number", default: 1 },
         itemsPerPage: { type: "number", default: DEFAULT_PAGE_SIZE },
       },
-      required: ["action", "accountId", "containerId"],
+      required: ["action"],  // ID들은 gtm_context에서 자동 사용 가능
     },
   },
   // ==================== gtm_tag ====================
   {
     name: "gtm_tag",
-    description: `Performs all GTM tag operations: create, get, list, update, remove, revert. The 'list' action returns up to ${TAG_PAGE_SIZE} items per page.`,
+    description: `Performs all GTM tag operations: create, get, list, update, remove, revert. The 'list' action returns up to ${TAG_PAGE_SIZE} items per page. **컨텍스트 지원**: gtm_context로 설정한 ID들을 자동으로 사용합니다.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -162,9 +270,9 @@ const tools = [
           enum: ["create", "get", "list", "update", "remove", "revert"],
           description: "The GTM tag operation to perform. Must be one of: 'create', 'get', 'list', 'update', 'remove', 'revert'.",
         },
-        accountId: { type: "string", description: "The unique ID of the GTM Account containing the tag." },
-        containerId: { type: "string", description: "The unique ID of the GTM Container containing the tag." },
-        workspaceId: { type: "string", description: "The unique ID of the GTM Workspace containing the tag." },
+        accountId: { type: "string", description: "GTM Account ID. 생략 시 gtm_context에서 자동 사용." },
+        containerId: { type: "string", description: "GTM Container ID. 생략 시 gtm_context에서 자동 사용." },
+        workspaceId: { type: "string", description: "GTM Workspace ID. 생략 시 gtm_context에서 자동 사용." },
         tagId: { type: "string", description: "The unique ID of the GTM tag. Required for 'get', 'update', 'remove', and 'revert' actions." },
         createOrUpdateConfig: { type: "object", description: "Configuration for 'create' and 'update' actions." },
         fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control. Required for 'update' and 'revert' actions." },
@@ -172,13 +280,13 @@ const tools = [
         itemsPerPage: { type: "number", default: TAG_PAGE_SIZE, maximum: TAG_PAGE_SIZE, description: `Number of items to return per page (1-${TAG_PAGE_SIZE}). Default: ${TAG_PAGE_SIZE}.` },
         refresh: { type: "boolean", default: false, description: "Force refresh cache by fetching latest data from API, ignoring cached data." },
       },
-      required: ["action", "accountId", "containerId", "workspaceId"],
+      required: ["action"],  // ID들은 gtm_context에서 자동 사용 가능
     },
   },
   // ==================== gtm_trigger ====================
   {
     name: "gtm_trigger",
-    description: `Performs all GTM trigger operations: create, get, list, update, remove, revert. The 'list' action returns up to ${TRIGGER_PAGE_SIZE} items per page.`,
+    description: `Performs all GTM trigger operations: create, get, list, update, remove, revert. The 'list' action returns up to ${TRIGGER_PAGE_SIZE} items per page. **컨텍스트 지원**: gtm_context로 설정한 ID들을 자동으로 사용합니다.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -187,9 +295,9 @@ const tools = [
           enum: ["create", "get", "list", "update", "remove", "revert"],
           description: "The GTM trigger operation to perform.",
         },
-        accountId: { type: "string", description: "The unique ID of the GTM Account containing the trigger." },
-        containerId: { type: "string", description: "The unique ID of the GTM Container containing the trigger." },
-        workspaceId: { type: "string", description: "The unique ID of the GTM Workspace containing the trigger." },
+        accountId: { type: "string", description: "GTM Account ID. 생략 시 gtm_context에서 자동 사용." },
+        containerId: { type: "string", description: "GTM Container ID. 생략 시 gtm_context에서 자동 사용." },
+        workspaceId: { type: "string", description: "GTM Workspace ID. 생략 시 gtm_context에서 자동 사용." },
         triggerId: { type: "string", description: "The unique ID of the GTM trigger. Required for 'get', 'update', 'remove', and 'revert' actions." },
         createOrUpdateConfig: { type: "object", description: "Configuration for 'create' and 'update' actions." },
         fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control." },
@@ -197,13 +305,13 @@ const tools = [
         itemsPerPage: { type: "number", default: TRIGGER_PAGE_SIZE, maximum: TRIGGER_PAGE_SIZE },
         refresh: { type: "boolean", default: false, description: "Force refresh cache by fetching latest data from API, ignoring cached data." },
       },
-      required: ["action", "accountId", "containerId", "workspaceId"],
+      required: ["action"],  // ID들은 gtm_context에서 자동 사용 가능
     },
   },
   // ==================== gtm_variable ====================
   {
     name: "gtm_variable",
-    description: `Performs all GTM variable operations: create, get, list, update, remove, revert. The 'list' action returns up to ${VARIABLE_PAGE_SIZE} items per page.`,
+    description: `Performs all GTM variable operations: create, get, list, update, remove, revert. The 'list' action returns up to ${VARIABLE_PAGE_SIZE} items per page. **컨텍스트 지원**: gtm_context로 설정한 ID들을 자동으로 사용합니다.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -212,9 +320,9 @@ const tools = [
           enum: ["create", "get", "list", "update", "remove", "revert"],
           description: "The GTM variable operation to perform.",
         },
-        accountId: { type: "string", description: "The unique ID of the GTM Account containing the variable." },
-        containerId: { type: "string", description: "The unique ID of the GTM Container containing the variable." },
-        workspaceId: { type: "string", description: "The unique ID of the GTM Workspace containing the variable." },
+        accountId: { type: "string", description: "GTM Account ID. 생략 시 gtm_context에서 자동 사용." },
+        containerId: { type: "string", description: "GTM Container ID. 생략 시 gtm_context에서 자동 사용." },
+        workspaceId: { type: "string", description: "GTM Workspace ID. 생략 시 gtm_context에서 자동 사용." },
         variableId: { type: "string", description: "The unique ID of the GTM variable. Required for 'get', 'update', 'remove', and 'revert' actions." },
         createOrUpdateConfig: { type: "object", description: "Configuration for 'create' and 'update' actions." },
         fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control." },
@@ -222,7 +330,7 @@ const tools = [
         itemsPerPage: { type: "number", default: VARIABLE_PAGE_SIZE, maximum: VARIABLE_PAGE_SIZE },
         refresh: { type: "boolean", default: false, description: "Force refresh cache by fetching latest data from API, ignoring cached data." },
       },
-      required: ["action", "accountId", "containerId", "workspaceId"],
+      required: ["action"],  // ID들은 gtm_context에서 자동 사용 가능
     },
   },
   // ==================== gtm_version ====================
@@ -584,6 +692,99 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
     const tagmanager = await getTagManagerClient();
 
     switch (name) {
+      // ==================== gtm_context ====================
+      case "gtm_context": {
+        const action = args.action as string;
+
+        switch (action) {
+          case "get": {
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  context: sessionContext,
+                  status: formatContextStatus(),
+                }, null, 2)
+              }]
+            };
+          }
+          case "set": {
+            const accountId = args.accountId as string;
+            const containerId = args.containerId as string | undefined;
+            const workspaceId = args.workspaceId as string | undefined;
+
+            if (!accountId) {
+              throw new Error("accountId는 set 액션에서 필수입니다.");
+            }
+
+            // Account 정보 조회
+            const accountRes = await tagmanager.accounts.get({ path: `accounts/${accountId}` });
+            sessionContext.accountId = accountId;
+            sessionContext.accountName = accountRes.data.name || null;
+
+            // Container 정보 조회 (제공된 경우)
+            if (containerId) {
+              const containerRes = await tagmanager.accounts.containers.get({
+                path: `accounts/${accountId}/containers/${containerId}`
+              });
+              sessionContext.containerId = containerId;
+              sessionContext.containerName = containerRes.data.name || null;
+              sessionContext.containerPublicId = containerRes.data.publicId || null;
+            } else {
+              sessionContext.containerId = null;
+              sessionContext.containerName = null;
+              sessionContext.containerPublicId = null;
+            }
+
+            // Workspace 정보 조회 (제공된 경우)
+            if (workspaceId && containerId) {
+              const workspaceRes = await tagmanager.accounts.containers.workspaces.get({
+                path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`
+              });
+              sessionContext.workspaceId = workspaceId;
+              sessionContext.workspaceName = workspaceRes.data.name || null;
+            } else {
+              sessionContext.workspaceId = null;
+              sessionContext.workspaceName = null;
+            }
+
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  success: true,
+                  message: "컨텍스트가 설정되었습니다.",
+                  context: sessionContext,
+                  status: formatContextStatus(),
+                }, null, 2)
+              }]
+            };
+          }
+          case "clear": {
+            sessionContext = {
+              accountId: null,
+              accountName: null,
+              containerId: null,
+              containerName: null,
+              containerPublicId: null,
+              workspaceId: null,
+              workspaceName: null,
+            };
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  success: true,
+                  message: "컨텍스트가 초기화되었습니다.",
+                }, null, 2)
+              }]
+            };
+          }
+          default:
+            throw new Error(`Unknown action: ${action}`);
+        }
+      }
+
       // ==================== gtm_account ====================
       case "gtm_account": {
         const action = args.action as string;
@@ -615,8 +816,8 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       // ==================== gtm_container ====================
       case "gtm_container": {
         const action = args.action as string;
-        const accountId = args.accountId as string;
-        const containerId = args.containerId as string;
+        const accountId = getAccountId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const containerId = (args.containerId as string) || sessionContext.containerId || "";
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZE);
 
@@ -704,9 +905,9 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       // ==================== gtm_workspace ====================
       case "gtm_workspace": {
         const action = args.action as string;
-        const accountId = args.accountId as string;
-        const containerId = args.containerId as string;
-        const workspaceId = args.workspaceId as string;
+        const accountId = getAccountId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const containerId = getContainerId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const workspaceId = (args.workspaceId as string) || sessionContext.workspaceId || "";
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZE);
 
@@ -718,8 +919,8 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "get": {
-            if (!workspaceId) throw new Error("workspaceId is required for get action");
-            const response = await tagmanager.accounts.containers.workspaces.get({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}` });
+            const wsId = workspaceId || getWorkspaceId(args);
+            const response = await tagmanager.accounts.containers.workspaces.get({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${wsId}` });
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "list": {
@@ -791,9 +992,9 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       // ==================== gtm_tag ====================
       case "gtm_tag": {
         const action = args.action as string;
-        const accountId = args.accountId as string;
-        const containerId = args.containerId as string;
-        const workspaceId = args.workspaceId as string;
+        const accountId = getAccountId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const containerId = getContainerId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const workspaceId = getWorkspaceId(args);  // 컨텍스트 또는 파라미터에서 가져옴
         const tagId = args.tagId as string;
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || TAG_PAGE_SIZE, TAG_PAGE_SIZE);
@@ -891,9 +1092,9 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       // ==================== gtm_trigger ====================
       case "gtm_trigger": {
         const action = args.action as string;
-        const accountId = args.accountId as string;
-        const containerId = args.containerId as string;
-        const workspaceId = args.workspaceId as string;
+        const accountId = getAccountId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const containerId = getContainerId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const workspaceId = getWorkspaceId(args);  // 컨텍스트 또는 파라미터에서 가져옴
         const triggerId = args.triggerId as string;
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || TRIGGER_PAGE_SIZE, TRIGGER_PAGE_SIZE);
@@ -991,9 +1192,9 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       // ==================== gtm_variable ====================
       case "gtm_variable": {
         const action = args.action as string;
-        const accountId = args.accountId as string;
-        const containerId = args.containerId as string;
-        const workspaceId = args.workspaceId as string;
+        const accountId = getAccountId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const containerId = getContainerId(args);  // 컨텍스트 또는 파라미터에서 가져옴
+        const workspaceId = getWorkspaceId(args);  // 컨텍스트 또는 파라미터에서 가져옴
         const variableId = args.variableId as string;
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || VARIABLE_PAGE_SIZE, VARIABLE_PAGE_SIZE);
@@ -1855,8 +2056,11 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
 
       // ==================== gtm_remove_session ====================
       case "gtm_remove_session": {
-        // Service Account 방식에서는 OAuth 세션이 없으므로 성공 메시지만 반환
-        return { content: [{ type: "text", text: JSON.stringify({ success: true, message: "Session data cleared (Service Account mode - no OAuth session to clear)" }, null, 2) }] };
+        // 캐시된 인증 클라이언트 초기화 (새 토큰 적용을 위해 필수)
+        clearCachedClient();
+        // 파일 캐시도 초기화
+        clearAllCache();
+        return { content: [{ type: "text", text: JSON.stringify({ success: true, message: "Cached auth client and all caches cleared. New token will be loaded on next API call." }, null, 2) }] };
       }
 
       // ==================== gtm_cache ====================
