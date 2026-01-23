@@ -1,5 +1,17 @@
 import { getTagManagerClient, createErrorResponse, log } from "../utils/index.js";
-import { paginateArray, processVersionData } from "../utils/pagination.js";
+import {
+  paginateArray,
+  processVersionData
+} from "../utils/pagination.js";
+import {
+  getFromFileCacheWithValidation,
+  setToFileCache,
+  invalidateFileCache,
+  getCachedWorkspaceFingerprint,
+  setCachedWorkspaceFingerprint,
+  clearAllWorkspaceCache,
+  clearAllCache
+} from "../utils/file-cache.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -41,14 +53,14 @@ const tools = [
   // ==================== gtm_container ====================
   {
     name: "gtm_container",
-    description: `Performs all container-related operations: create, get, update, remove, list, combine, lookup, moveTagId, snippet. The 'list' action returns up to itemsPerPage items per page.`,
+    description: `Performs container-related operations: get, list, combine, lookup, moveTagId, snippet. The 'list' action returns up to itemsPerPage items per page. NOTE: create/update/remove actions are disabled for safety.`,
     inputSchema: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          enum: ["create", "get", "list", "update", "remove", "combine", "lookup", "moveTagId", "snippet"],
-          description: "The container operation to perform. Must be one of: 'create', 'get', 'list', 'update', 'remove', 'combine', 'lookup', 'moveTagId', 'snippet'.",
+          enum: ["get", "list", "combine", "lookup", "moveTagId", "snippet"],
+          description: "The container operation to perform. Must be one of: 'get', 'list', 'combine', 'lookup', 'moveTagId', 'snippet'. NOTE: create/update/remove are disabled for safety.",
         },
         accountId: {
           type: "string",
@@ -158,6 +170,7 @@ const tools = [
         fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control. Required for 'update' and 'revert' actions." },
         page: { type: "number", default: 1, description: `Page number for pagination (starts from 1). Each page contains up to itemsPerPage items.` },
         itemsPerPage: { type: "number", default: TAG_PAGE_SIZE, maximum: TAG_PAGE_SIZE, description: `Number of items to return per page (1-${TAG_PAGE_SIZE}). Default: ${TAG_PAGE_SIZE}.` },
+        refresh: { type: "boolean", default: false, description: "Force refresh cache by fetching latest data from API, ignoring cached data." },
       },
       required: ["action", "accountId", "containerId", "workspaceId"],
     },
@@ -182,6 +195,7 @@ const tools = [
         fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control." },
         page: { type: "number", default: 1 },
         itemsPerPage: { type: "number", default: TRIGGER_PAGE_SIZE, maximum: TRIGGER_PAGE_SIZE },
+        refresh: { type: "boolean", default: false, description: "Force refresh cache by fetching latest data from API, ignoring cached data." },
       },
       required: ["action", "accountId", "containerId", "workspaceId"],
     },
@@ -206,6 +220,7 @@ const tools = [
         fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control." },
         page: { type: "number", default: 1 },
         itemsPerPage: { type: "number", default: VARIABLE_PAGE_SIZE, maximum: VARIABLE_PAGE_SIZE },
+        refresh: { type: "boolean", default: false, description: "Force refresh cache by fetching latest data from API, ignoring cached data." },
       },
       required: ["action", "accountId", "containerId", "workspaceId"],
     },
@@ -213,20 +228,20 @@ const tools = [
   // ==================== gtm_version ====================
   {
     name: "gtm_version",
-    description: `Performs all container version operations: get, live, publish, remove, setLatest, undelete, update. For 'get' and 'live' actions, use 'resourceType' to paginate specific resource arrays (up to ${VERSION_PAGE_SIZE} items per page) to avoid response truncation.`,
+    description: `Performs container version operations: get, live, setLatest, undelete, update. For 'get' and 'live' actions, use 'resourceType' to paginate specific resource arrays (up to ${VERSION_PAGE_SIZE} items per page) to avoid response truncation. NOTE: publish/remove actions are disabled for safety.`,
     inputSchema: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          enum: ["get", "live", "publish", "remove", "setLatest", "undelete", "update"],
-          description: "The container version operation to perform.",
+          enum: ["get", "live", "setLatest", "undelete", "update"],
+          description: "The container version operation to perform. NOTE: publish/remove are disabled for safety.",
         },
         accountId: { type: "string", description: "The unique ID of the GTM Account containing the container version." },
         containerId: { type: "string", description: "The unique ID of the GTM Container containing the version." },
-        containerVersionId: { type: "string", description: "The unique ID of the GTM container version. Required for 'get', 'publish', 'remove', 'setLatest', 'undelete', and 'update' actions." },
-        createOrUpdateConfig: { type: "object", description: "Configuration for 'create' and 'update' actions." },
-        fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control. Required for 'publish' and 'update' actions." },
+        containerVersionId: { type: "string", description: "The unique ID of the GTM container version. Required for 'get', 'setLatest', 'undelete', and 'update' actions." },
+        createOrUpdateConfig: { type: "object", description: "Configuration for 'update' actions." },
+        fingerprint: { type: "string", description: "The fingerprint for optimistic concurrency control. Required for 'update' actions." },
         resourceType: {
           type: "string",
           enum: ["tag", "trigger", "variable", "folder", "builtInVariable", "zone", "customTemplate", "client", "gtagConfig", "transformation"],
@@ -537,6 +552,25 @@ const tools = [
       required: [],
     },
   },
+  // ==================== gtm_cache ====================
+  {
+    name: "gtm_cache",
+    description: "Manage GTM MCP cache. Use 'clear' to force refresh data on next request. Use 'stats' to view cache status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["clear", "clearAll", "stats"],
+          description: "'clear': Clear cache for specific workspace (requires accountId, containerId, workspaceId). 'clearAll': Clear all caches. 'stats': Show cache statistics.",
+        },
+        accountId: { type: "string", description: "Account ID (required for 'clear' action)" },
+        containerId: { type: "string", description: "Container ID (required for 'clear' action)" },
+        workspaceId: { type: "string", description: "Workspace ID (required for 'clear' action)" },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 export function registerAllTools() {
@@ -618,10 +652,10 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             const response = await tagmanager.accounts.containers.update({ path: `accounts/${accountId}/containers/${containerId}`, fingerprint, requestBody: config });
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
+          case "create":
+          case "update":
           case "remove": {
-            if (!containerId) throw new Error("containerId is required for remove action");
-            await tagmanager.accounts.containers.delete({ path: `accounts/${accountId}/containers/${containerId}` });
-            return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Container ${containerId} was successfully deleted` }, null, 2) }] };
+            throw new Error(`SAFETY: Container ${action} action is disabled. Container create/update/remove operations are not allowed via API for safety reasons.`);
           }
           case "combine": {
             const combineConfig = args.combineConfig as Record<string, unknown>;
@@ -763,12 +797,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         const tagId = args.tagId as string;
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || TAG_PAGE_SIZE, TAG_PAGE_SIZE);
+        const refresh = args.refresh as boolean || false;
 
         switch (action) {
           case "create": {
             const config = args.createOrUpdateConfig as Record<string, unknown>;
             if (!config) throw new Error("createOrUpdateConfig is required for create action");
             const response = await tagmanager.accounts.containers.workspaces.tags.create({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, requestBody: config });
+            invalidateFileCache(accountId, containerId, workspaceId, "tag");
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "get": {
@@ -777,13 +813,51 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "list": {
-            let all: unknown[] = [];
-            let currentPageToken = "";
-            do {
-              const response = await tagmanager.accounts.containers.workspaces.tags.list({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, pageToken: currentPageToken });
-              if (response.data.tag) all = all.concat(response.data.tag);
-              currentPageToken = response.data.nextPageToken || "";
-            } while (currentPageToken);
+            let all: unknown[] | null = null;
+            let currentFingerprint: string | null = null;
+
+            // Skip all cache if refresh=true
+            if (refresh) {
+              log(`[Cache] Tag cache refresh requested`);
+              invalidateFileCache(accountId, containerId, workspaceId, "tag");
+            } else {
+              // Try fingerprint cache first (fast, in-memory)
+              currentFingerprint = getCachedWorkspaceFingerprint(accountId, containerId, workspaceId);
+
+              if (currentFingerprint) {
+                // Fingerprint cache hit - validate file cache
+                const cacheResult = getFromFileCacheWithValidation<unknown>(
+                  accountId, containerId, workspaceId, "tag", currentFingerprint
+                );
+                if (cacheResult.valid) {
+                  all = cacheResult.data;
+                }
+              }
+            }
+
+            // Cache miss or refresh: fetch from API
+            if (!all) {
+              // Get current fingerprint from API (if not already fetched)
+              if (!currentFingerprint || refresh) {
+                const wsResponse = await tagmanager.accounts.containers.workspaces.get({
+                  path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`
+                });
+                currentFingerprint = wsResponse.data.fingerprint as string;
+                // Cache the fingerprint for 1 minute
+                setCachedWorkspaceFingerprint(accountId, containerId, workspaceId, currentFingerprint);
+              }
+
+              // Fetch all tags from API
+              all = [];
+              let currentPageToken = "";
+              do {
+                const response = await tagmanager.accounts.containers.workspaces.tags.list({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, pageToken: currentPageToken });
+                if (response.data.tag) all = all.concat(response.data.tag);
+                currentPageToken = response.data.nextPageToken || "";
+              } while (currentPageToken);
+              // Save to file cache with fingerprint
+              setToFileCache(accountId, containerId, workspaceId, "tag", all, currentFingerprint);
+            }
             const paginatedResult = paginateArray(all, page, itemsPerPage);
             return { content: [{ type: "text", text: JSON.stringify(paginatedResult, null, 2) }] };
           }
@@ -794,11 +868,13 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             if (!config) throw new Error("createOrUpdateConfig is required for update action");
             if (!fingerprint) throw new Error("fingerprint is required for update action");
             const response = await tagmanager.accounts.containers.workspaces.tags.update({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}/tags/${tagId}`, fingerprint, requestBody: config });
+            invalidateFileCache(accountId, containerId, workspaceId, "tag");
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "remove": {
             if (!tagId) throw new Error("tagId is required for remove action");
             await tagmanager.accounts.containers.workspaces.tags.delete({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}/tags/${tagId}` });
+            invalidateFileCache(accountId, containerId, workspaceId, "tag");
             return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Tag ${tagId} was successfully deleted` }, null, 2) }] };
           }
           case "revert": {
@@ -821,12 +897,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         const triggerId = args.triggerId as string;
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || TRIGGER_PAGE_SIZE, TRIGGER_PAGE_SIZE);
+        const refresh = args.refresh as boolean || false;
 
         switch (action) {
           case "create": {
             const config = args.createOrUpdateConfig as Record<string, unknown>;
             if (!config) throw new Error("createOrUpdateConfig is required for create action");
             const response = await tagmanager.accounts.containers.workspaces.triggers.create({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, requestBody: config });
+            invalidateFileCache(accountId, containerId, workspaceId, "trigger");
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "get": {
@@ -835,13 +913,51 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "list": {
-            let all: unknown[] = [];
-            let currentPageToken = "";
-            do {
-              const response = await tagmanager.accounts.containers.workspaces.triggers.list({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, pageToken: currentPageToken });
-              if (response.data.trigger) all = all.concat(response.data.trigger);
-              currentPageToken = response.data.nextPageToken || "";
-            } while (currentPageToken);
+            let all: unknown[] | null = null;
+            let currentFingerprint: string | null = null;
+
+            // Skip all cache if refresh=true
+            if (refresh) {
+              log(`[Cache] Trigger cache refresh requested`);
+              invalidateFileCache(accountId, containerId, workspaceId, "trigger");
+            } else {
+              // Try fingerprint cache first (fast, in-memory)
+              currentFingerprint = getCachedWorkspaceFingerprint(accountId, containerId, workspaceId);
+
+              if (currentFingerprint) {
+                // Fingerprint cache hit - validate file cache
+                const cacheResult = getFromFileCacheWithValidation<unknown>(
+                  accountId, containerId, workspaceId, "trigger", currentFingerprint
+                );
+                if (cacheResult.valid) {
+                  all = cacheResult.data;
+                }
+              }
+            }
+
+            // Cache miss or refresh: fetch from API
+            if (!all) {
+              // Get current fingerprint from API (if not already fetched)
+              if (!currentFingerprint || refresh) {
+                const wsResponse = await tagmanager.accounts.containers.workspaces.get({
+                  path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`
+                });
+                currentFingerprint = wsResponse.data.fingerprint as string;
+                // Cache the fingerprint for 1 minute
+                setCachedWorkspaceFingerprint(accountId, containerId, workspaceId, currentFingerprint);
+              }
+
+              // Fetch all triggers from API
+              all = [];
+              let currentPageToken = "";
+              do {
+                const response = await tagmanager.accounts.containers.workspaces.triggers.list({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, pageToken: currentPageToken });
+                if (response.data.trigger) all = all.concat(response.data.trigger);
+                currentPageToken = response.data.nextPageToken || "";
+              } while (currentPageToken);
+              // Save to file cache with fingerprint
+              setToFileCache(accountId, containerId, workspaceId, "trigger", all, currentFingerprint);
+            }
             const paginatedResult = paginateArray(all, page, itemsPerPage);
             return { content: [{ type: "text", text: JSON.stringify(paginatedResult, null, 2) }] };
           }
@@ -852,11 +968,13 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             if (!config) throw new Error("createOrUpdateConfig is required for update action");
             if (!fingerprint) throw new Error("fingerprint is required for update action");
             const response = await tagmanager.accounts.containers.workspaces.triggers.update({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}/triggers/${triggerId}`, fingerprint, requestBody: config });
+            invalidateFileCache(accountId, containerId, workspaceId, "trigger");
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "remove": {
             if (!triggerId) throw new Error("triggerId is required for remove action");
             await tagmanager.accounts.containers.workspaces.triggers.delete({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}/triggers/${triggerId}` });
+            invalidateFileCache(accountId, containerId, workspaceId, "trigger");
             return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Trigger ${triggerId} was successfully deleted` }, null, 2) }] };
           }
           case "revert": {
@@ -879,12 +997,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         const variableId = args.variableId as string;
         const page = (args.page as number) || 1;
         const itemsPerPage = Math.min((args.itemsPerPage as number) || VARIABLE_PAGE_SIZE, VARIABLE_PAGE_SIZE);
+        const refresh = args.refresh as boolean || false;
 
         switch (action) {
           case "create": {
             const config = args.createOrUpdateConfig as Record<string, unknown>;
             if (!config) throw new Error("createOrUpdateConfig is required for create action");
             const response = await tagmanager.accounts.containers.workspaces.variables.create({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, requestBody: config });
+            invalidateFileCache(accountId, containerId, workspaceId, "variable");
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "get": {
@@ -893,13 +1013,51 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "list": {
-            let all: unknown[] = [];
-            let currentPageToken = "";
-            do {
-              const response = await tagmanager.accounts.containers.workspaces.variables.list({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, pageToken: currentPageToken });
-              if (response.data.variable) all = all.concat(response.data.variable);
-              currentPageToken = response.data.nextPageToken || "";
-            } while (currentPageToken);
+            let all: unknown[] | null = null;
+            let currentFingerprint: string | null = null;
+
+            // Skip all cache if refresh=true
+            if (refresh) {
+              log(`[Cache] Variable cache refresh requested`);
+              invalidateFileCache(accountId, containerId, workspaceId, "variable");
+            } else {
+              // Try fingerprint cache first (fast, in-memory)
+              currentFingerprint = getCachedWorkspaceFingerprint(accountId, containerId, workspaceId);
+
+              if (currentFingerprint) {
+                // Fingerprint cache hit - validate file cache
+                const cacheResult = getFromFileCacheWithValidation<unknown>(
+                  accountId, containerId, workspaceId, "variable", currentFingerprint
+                );
+                if (cacheResult.valid) {
+                  all = cacheResult.data;
+                }
+              }
+            }
+
+            // Cache miss or refresh: fetch from API
+            if (!all) {
+              // Get current fingerprint from API (if not already fetched)
+              if (!currentFingerprint || refresh) {
+                const wsResponse = await tagmanager.accounts.containers.workspaces.get({
+                  path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`
+                });
+                currentFingerprint = wsResponse.data.fingerprint as string;
+                // Cache the fingerprint for 1 minute
+                setCachedWorkspaceFingerprint(accountId, containerId, workspaceId, currentFingerprint);
+              }
+
+              // Fetch all variables from API
+              all = [];
+              let currentPageToken = "";
+              do {
+                const response = await tagmanager.accounts.containers.workspaces.variables.list({ parent: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}`, pageToken: currentPageToken });
+                if (response.data.variable) all = all.concat(response.data.variable);
+                currentPageToken = response.data.nextPageToken || "";
+              } while (currentPageToken);
+              // Save to file cache with fingerprint
+              setToFileCache(accountId, containerId, workspaceId, "variable", all, currentFingerprint);
+            }
             const paginatedResult = paginateArray(all, page, itemsPerPage);
             return { content: [{ type: "text", text: JSON.stringify(paginatedResult, null, 2) }] };
           }
@@ -910,11 +1068,13 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             if (!config) throw new Error("createOrUpdateConfig is required for update action");
             if (!fingerprint) throw new Error("fingerprint is required for update action");
             const response = await tagmanager.accounts.containers.workspaces.variables.update({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}/variables/${variableId}`, fingerprint, requestBody: config });
+            invalidateFileCache(accountId, containerId, workspaceId, "variable");
             return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
           }
           case "remove": {
             if (!variableId) throw new Error("variableId is required for remove action");
             await tagmanager.accounts.containers.workspaces.variables.delete({ path: `accounts/${accountId}/containers/${containerId}/workspaces/${workspaceId}/variables/${variableId}` });
+            invalidateFileCache(accountId, containerId, workspaceId, "variable");
             return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Variable ${variableId} was successfully deleted` }, null, 2) }] };
           }
           case "revert": {
@@ -951,16 +1111,9 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
             const processedData = processVersionData(response.data as Record<string, unknown>, resourceType, page, itemsPerPage);
             return { content: [{ type: "text", text: JSON.stringify(processedData, null, 2) }] };
           }
-          case "publish": {
-            if (!containerVersionId) throw new Error("containerVersionId is required for publish action");
-            const fingerprint = args.fingerprint as string;
-            const response = await tagmanager.accounts.containers.versions.publish({ path: `accounts/${accountId}/containers/${containerId}/versions/${containerVersionId}`, fingerprint });
-            return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
-          }
+          case "publish":
           case "remove": {
-            if (!containerVersionId) throw new Error("containerVersionId is required for remove action");
-            await tagmanager.accounts.containers.versions.delete({ path: `accounts/${accountId}/containers/${containerId}/versions/${containerVersionId}` });
-            return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Container version ${containerVersionId} was successfully deleted` }, null, 2) }] };
+            throw new Error(`SAFETY: Version ${action} action is disabled. Publishing and removing versions are not allowed via API for safety reasons. Please use GTM UI for these operations.`);
           }
           case "setLatest": {
             if (!containerVersionId) throw new Error("containerVersionId is required for setLatest action");
@@ -1704,6 +1857,64 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       case "gtm_remove_session": {
         // Service Account 방식에서는 OAuth 세션이 없으므로 성공 메시지만 반환
         return { content: [{ type: "text", text: JSON.stringify({ success: true, message: "Session data cleared (Service Account mode - no OAuth session to clear)" }, null, 2) }] };
+      }
+
+      // ==================== gtm_cache ====================
+      case "gtm_cache": {
+        const action = args.action as string;
+        const accountId = args.accountId as string;
+        const containerId = args.containerId as string;
+        const workspaceId = args.workspaceId as string;
+
+        switch (action) {
+          case "clear": {
+            if (!accountId || !containerId || !workspaceId) {
+              throw new Error("accountId, containerId, and workspaceId are required for 'clear' action");
+            }
+            const result = clearAllWorkspaceCache(accountId, containerId, workspaceId);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  success: true,
+                  message: `Cache cleared for workspace ${workspaceId}`,
+                  filesDeleted: result.filesDeleted,
+                  fingerprintCleared: result.fingerprintCleared,
+                }, null, 2)
+              }]
+            };
+          }
+          case "clearAll": {
+            const result = clearAllCache();
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  success: true,
+                  message: "All caches cleared",
+                  filesDeleted: result.filesDeleted,
+                  fingerprintsCleared: result.fingerprintsCleared,
+                }, null, 2)
+              }]
+            };
+          }
+          case "stats": {
+            const { getFileCacheStats } = await import("../utils/file-cache.js");
+            const stats = getFileCacheStats();
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  totalCacheFiles: stats.totalFiles,
+                  files: stats.files,
+                  fingerprintCacheEntries: stats.fingerprintCacheSize,
+                }, null, 2)
+              }]
+            };
+          }
+          default:
+            throw new Error(`Unknown action: ${action}`);
+        }
       }
 
       default:

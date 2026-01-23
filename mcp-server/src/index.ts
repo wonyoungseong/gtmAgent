@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { getCredentialsInfo, log } from "./utils/index.js";
+import { getCredentialsInfo, log, cleanExpiredFileCache } from "./utils/index.js";
 import { registerAllTools, handleToolCall } from "./tools/index.js";
 
 const server = new Server(
@@ -35,6 +35,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
+  // Clean expired cache files on startup
+  cleanExpiredFileCache();
+
   const credInfo = getCredentialsInfo();
   if (credInfo) {
     log(`Starting GTM MCP Server (Service Account: ${credInfo.email})`);

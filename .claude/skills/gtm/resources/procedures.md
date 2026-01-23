@@ -82,8 +82,9 @@ if (workspaceCount < 3) {
 > 🚨 **추측 금지!** GTM에서 실제 패턴 추출 → **해당 GTM 패턴 우선**
 
 ```javascript
-// 1. 기존 GA4 태그 조회
-gtm_tag(action: "list", accountId, containerId, workspaceId)
+// 1. 병렬 조회 (동시 실행)
+// ├── gtm_tag(action: "list", ...)
+// └── gtm_trigger(action: "list", ...)
 
 // 2. 태그명에서 event_category 추출
 // "GA4 - Start Diagnosis - Popup" → category: "Start Diagnosis"
@@ -97,7 +98,6 @@ gtm_tag(action: "list", accountId, containerId, workspaceId)
 //   - 기타: GTM마다 다를 수 있음
 
 // 4. 트리거에서 event_name 추출
-gtm_trigger(action: "list", ...)
 // customEventFilter에서 기존 event_name 수집
 ```
 
@@ -226,10 +226,10 @@ gtm_trigger(action: "list", ...)
 > 5. Tag Sequencing (태그 발동 순서)
 
 ```javascript
-// 1. GTM 기존 패턴 분석 (유사한 복잡 구현 찾기)
-gtm_trigger(action: "list", ...)  // filter 있는 트리거
-gtm_variable(action: "list", ...)  // Cookie, JS 변수
-gtm_tag(action: "list", ...)       // Custom HTML 태그
+// 1. GTM 기존 패턴 분석 - 병렬 조회 (동시 실행)
+// ├── gtm_trigger(action: "list", ...)  // filter 있는 트리거
+// ├── gtm_variable(action: "list", ...)  // Cookie, JS 변수
+// └── gtm_tag(action: "list", ...)       // Custom HTML 태그
 
 // 2. 필요 구성요소 파악 (다중 선택)
 AskUserQuestion({
@@ -383,17 +383,19 @@ gtm_tag(action: "list", ...)
 ### Phase 5: 생성
 
 ```javascript
-// 1. 3-Layer 중복 체크
-gtm_tag(action: "list")      // 태그명
-gtm_trigger(action: "list")  // 트리거명
-gtm_variable(action: "list") // 변수명
+// 1. 3-Layer 중복 체크 - 병렬 조회 (동시 실행)
+// ├── gtm_tag(action: "list")      // 태그명
+// ├── gtm_trigger(action: "list")  // 트리거명
+// └── gtm_variable(action: "list") // 변수명
 
 // 2. 사용자 승인
 
-// 3. 순서대로 생성
-gtm_variable(action: "create", ...)  // 변수 (필요시)
-gtm_trigger(action: "create", ...)   // 트리거
-gtm_tag(action: "create", ...)       // 태그
+// 3. 생성 (의존성 고려)
+// 3-1. 병렬 생성 (의존성 없음)
+//   ├── gtm_variable(action: "create", ...)  // 변수 (필요시)
+//   └── gtm_trigger(action: "create", ...)   // 트리거
+// 3-2. 태그 생성 (트리거 ID 필요)
+//   └── gtm_tag(action: "create", ...)       // 태그
 
 // 4. 워크스페이스 description 업데이트 (생성 내역 기록)
 gtm_workspace(action: "get", workspaceId)  // 현재 fingerprint 조회
@@ -427,9 +429,10 @@ gtm_workspace(action: "update", workspaceId, fingerprint, {
 
 ### Quick
 ```javascript
-gtm_tag(action: "list", page: 1)
-gtm_trigger(action: "list", page: 1)
-gtm_variable(action: "list", page: 1)
+// 병렬 조회 (동시 실행)
+// ├── gtm_tag(action: "list", page: 1)
+// ├── gtm_trigger(action: "list", page: 1)
+// └── gtm_variable(action: "list", page: 1)
 // 요약: 수량, 패턴
 ```
 

@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "bin": {
     "gtm-mcp": "./dist/index.js",
-    "gtm-mcp-setup": "./scripts/setup.js"
+    "gtm-mcp-setup": "./scripts/setup.js",
+    "gtm-mcp-oauth": "./scripts/oauth.js"
   },
   "files": [
     "dist",

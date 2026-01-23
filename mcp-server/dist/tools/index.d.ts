@@ -29,6 +29,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -107,6 +108,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -185,6 +187,7 @@ export declare function registerAllTools(): ({
             combineConfig?: undefined;
             moveTagIdConfig?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -253,6 +256,11 @@ export declare function registerAllTools(): ({
                 type: string;
                 default: number;
                 maximum: number;
+                description: string;
+            };
+            refresh: {
+                type: string;
+                default: boolean;
                 description: string;
             };
             config?: undefined;
@@ -331,6 +339,11 @@ export declare function registerAllTools(): ({
                 maximum: number;
                 description?: undefined;
             };
+            refresh: {
+                type: string;
+                default: boolean;
+                description: string;
+            };
             config?: undefined;
             destinationId?: undefined;
             combineConfig?: undefined;
@@ -406,6 +419,11 @@ export declare function registerAllTools(): ({
                 default: number;
                 maximum: number;
                 description?: undefined;
+            };
+            refresh: {
+                type: string;
+                default: boolean;
+                description: string;
             };
             config?: undefined;
             destinationId?: undefined;
@@ -496,6 +514,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             type?: undefined;
@@ -574,6 +593,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -647,6 +667,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -716,6 +737,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -788,6 +810,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -883,6 +906,7 @@ export declare function registerAllTools(): ({
             moveTagIdConfig?: undefined;
             entity?: undefined;
             changeStatus?: undefined;
+            refresh?: undefined;
             containerVersionId?: undefined;
             resourceType?: undefined;
             includeSummary?: undefined;
@@ -956,6 +980,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1031,6 +1056,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1106,6 +1132,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1172,6 +1199,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1238,6 +1266,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1313,6 +1342,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1378,6 +1408,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             resourceType?: undefined;
@@ -1419,6 +1450,7 @@ export declare function registerAllTools(): ({
             entity?: undefined;
             changeStatus?: undefined;
             tagId?: undefined;
+            refresh?: undefined;
             triggerId?: undefined;
             variableId?: undefined;
             containerVersionId?: undefined;
@@ -1441,6 +1473,64 @@ export declare function registerAllTools(): ({
             outputPath?: undefined;
         };
         required: never[];
+    };
+} | {
+    name: string;
+    description: string;
+    inputSchema: {
+        type: string;
+        properties: {
+            action: {
+                type: string;
+                enum: string[];
+                description: string;
+            };
+            accountId: {
+                type: string;
+                description: string;
+            };
+            containerId: {
+                type: string;
+                description: string;
+            };
+            workspaceId: {
+                type: string;
+                description: string;
+            };
+            config?: undefined;
+            destinationId?: undefined;
+            createOrUpdateConfig?: undefined;
+            fingerprint?: undefined;
+            combineConfig?: undefined;
+            moveTagIdConfig?: undefined;
+            page?: undefined;
+            itemsPerPage?: undefined;
+            entity?: undefined;
+            changeStatus?: undefined;
+            tagId?: undefined;
+            refresh?: undefined;
+            triggerId?: undefined;
+            variableId?: undefined;
+            containerVersionId?: undefined;
+            resourceType?: undefined;
+            includeSummary?: undefined;
+            type?: undefined;
+            types?: undefined;
+            pageToken?: undefined;
+            clientId?: undefined;
+            allowUserPermissionFeatureUpdate?: undefined;
+            environmentId?: undefined;
+            folderId?: undefined;
+            gtagConfigId?: undefined;
+            templateId?: undefined;
+            transformationId?: undefined;
+            userPermissionId?: undefined;
+            includeDeleted?: undefined;
+            zoneId?: undefined;
+            versionType?: undefined;
+            outputPath?: undefined;
+        };
+        required: string[];
     };
 })[];
 export declare function handleToolCall(name: string, args: Record<string, unknown>): Promise<{

@@ -1,4 +1,6 @@
 export declare const DEFAULT_PAGE_SIZE = 20;
+export declare const SUMMARY_SAMPLE_SIZE = 5;
+export declare const CACHE_TTL_MS: number;
 export interface PaginationResult<T> {
     data: T[];
     pagination: {
@@ -6,25 +8,12 @@ export interface PaginationResult<T> {
         itemsPerPage: number;
         totalItems: number;
         totalPages: number;
+        returned: number;
         hasNextPage: boolean;
         hasPreviousPage: boolean;
+        nextPage: number | null;
+        previousPage: number | null;
     };
 }
 export declare function paginateArray<T>(items: T[], page?: number, itemsPerPage?: number): PaginationResult<T>;
-export declare function processVersionData(versionData: Record<string, unknown>, resourceType?: string, page?: number, itemsPerPage?: number): {
-    version: {
-        [x: string]: unknown[];
-    };
-    summary: {
-        tagCount: number;
-        triggerCount: number;
-        variableCount: number;
-        folderCount: number;
-        builtInVariableCount: number;
-        zoneCount: number;
-        customTemplateCount: number;
-        clientCount: number;
-        gtagConfigCount: number;
-        transformationCount: number;
-    };
-};
+export declare function processVersionData(versionData: Record<string, unknown>, resourceType?: string, page?: number, itemsPerPage?: number, includeSummary?: boolean): Record<string, unknown>;

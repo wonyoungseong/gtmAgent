@@ -114,6 +114,86 @@ if (ga4_event_name === "custom_event") {
 - remove, publish: 사용하지 마세요
 </safety_rules>
 
+<tag_analysis_rules>
+## 태그 분석 시 필수 확인 사항
+
+### 1. Tag Sequencing (Setup Tag / Cleanup Tag) 반드시 확인
+태그의 실행 흐름을 파악할 때 **firingTriggerId만으로는 불완전**합니다.
+반드시 다음을 함께 확인하세요:
+
+| 속성 | 설명 | 확인 방법 |
+|------|------|-----------|
+| `firingTriggerId` | 직접 연결된 트리거 | 태그 조회 시 확인 |
+| `setupTag` | 이 태그 실행 **전에** 실행되는 태그 | 태그 조회 시 확인 |
+| `teardownTag` | 이 태그 실행 **후에** 실행되는 태그 (Cleanup) | 태그 조회 시 확인 |
+
+### 2. 태그 연결 구조 파악 프로세스
+```javascript
+// 1. 태그 목록 조회
+gtm_tag({ action: "list", ... })
+
+// 2. 각 태그의 setupTag, teardownTag 확인
+for (tag of tags) {
+  if (tag.setupTag) {
+    // 이 태그는 다른 태그의 Setup으로 실행됨
+    console.log(tag.name + " → Setup: " + tag.setupTag.map(t => t.tagName))
+  }
+  if (tag.teardownTag) {
+    // 이 태그 실행 후 Cleanup 태그가 실행됨
+    console.log(tag.name + " → Cleanup: " + tag.teardownTag.map(t => t.tagName))
+  }
+}
+```
+
+### 3. 트리거가 없는 태그 주의
+`firingTriggerId`가 없는 태그는 **다른 태그의 Setup/Cleanup으로만 실행**됩니다.
+이런 태그를 발견하면 어떤 태그에서 참조하는지 반드시 역추적하세요.
+
+### 4. 실행 흐름 예시
+```
+[Trigger 발동]
+      ↓
+[Setup Tag] (있으면 먼저 실행)
+      ↓
+[Main Tag] (본 태그 실행)
+      ↓
+[Cleanup Tag] (있으면 나중에 실행)
+```
+
+### 5. 분석 보고 시 포함할 정보
+태그 분석 결과를 보고할 때 반드시 다음을 포함:
+- 직접 트리거 (firingTriggerId)
+- Setup Tag 연결 여부
+- Cleanup Tag 연결 여부
+- 이 태그를 참조하는 다른 태그 (역방향 참조)
+</tag_analysis_rules>
+
+<cache_rules>
+## 캐시 자동 갱신 규칙
+
+MCP 서버는 태그/트리거/변수 목록을 캐시합니다.
+
+### 반드시 refresh: true 사용해야 하는 상황
+| 감지 키워드 | 조치 |
+|------------|------|
+| "방금 수정했어", "GTM에서 변경" | `refresh: true` |
+| "최신 데이터", "새로고침" | `refresh: true` |
+| create/update 직후 list 호출 | `refresh: true` |
+| 사용자가 예상과 다른 결과 언급 | `refresh: true` |
+
+```javascript
+// 예시: 사용자가 "방금 GTM에서 수정했어"
+gtm_tag({ action: "list", ..., refresh: true })
+
+// 예시: 태그 생성 후 목록 재조회
+await gtm_tag({ action: "create", ... });
+gtm_tag({ action: "list", ..., refresh: true });
+
+// 캐시 수동 초기화
+gtm_cache({ action: "clear", accountId, containerId, workspaceId })
+```
+</cache_rules>
+
 <references>
 | 문서 | 용도 |
 |------|------|

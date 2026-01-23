@@ -1,4 +1,6 @@
 export const DEFAULT_PAGE_SIZE = 20;
+export const SUMMARY_SAMPLE_SIZE = 5;
+export const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 export function paginateArray(items, page = 1, itemsPerPage = DEFAULT_PAGE_SIZE) {
     const totalItems = items.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -6,6 +8,8 @@ export function paginateArray(items, page = 1, itemsPerPage = DEFAULT_PAGE_SIZE)
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const data = items.slice(startIndex, endIndex);
+    const hasNextPage = currentPage < totalPages;
+    const hasPreviousPage = currentPage > 1;
     return {
         data,
         pagination: {
@@ -13,13 +17,18 @@ export function paginateArray(items, page = 1, itemsPerPage = DEFAULT_PAGE_SIZE)
             itemsPerPage,
             totalItems,
             totalPages,
-            hasNextPage: currentPage < totalPages,
-            hasPreviousPage: currentPage > 1,
+            returned: data.length,
+            hasNextPage,
+            hasPreviousPage,
+            nextPage: hasNextPage ? currentPage + 1 : null,
+            previousPage: hasPreviousPage ? currentPage - 1 : null,
         },
     };
 }
 // Process version data with optional pagination
-export function processVersionData(versionData, resourceType, page = 1, itemsPerPage = DEFAULT_PAGE_SIZE) {
+// - resourceType 없으면: summary + sample (미리보기 5개씩)
+// - resourceType 있으면: 해당 리소스만 pagination으로 반환 (전체 조회 가능)
+export function processVersionData(versionData, resourceType, page = 1, itemsPerPage = DEFAULT_PAGE_SIZE, includeSummary = false) {
     const { tag, trigger, variable, folder, builtInVariable, zone, customTemplate, client, gtagConfig, transformation, ...baseVersion } = versionData;
     // Summary counts
     const summary = {
@@ -34,14 +43,25 @@ export function processVersionData(versionData, resourceType, page = 1, itemsPer
         gtagConfigCount: gtagConfig?.length || 0,
         transformationCount: transformation?.length || 0,
     };
-    // If no resourceType, return summary only (no pagination needed for summary)
+    // If no resourceType, return summary + samples (preview mode)
     if (!resourceType) {
         return {
             version: baseVersion,
             summary,
+            // Sample: 미리보기용 (전체 데이터는 resourceType 지정해서 조회)
+            tagSample: tag?.slice(0, SUMMARY_SAMPLE_SIZE),
+            triggerSample: trigger?.slice(0, SUMMARY_SAMPLE_SIZE),
+            variableSample: variable?.slice(0, SUMMARY_SAMPLE_SIZE),
+            folderSample: folder?.slice(0, SUMMARY_SAMPLE_SIZE),
+            builtInVariableSample: builtInVariable?.slice(0, SUMMARY_SAMPLE_SIZE),
+            zoneSample: zone?.slice(0, SUMMARY_SAMPLE_SIZE),
+            customTemplateSample: customTemplate?.slice(0, SUMMARY_SAMPLE_SIZE),
+            clientSample: client?.slice(0, SUMMARY_SAMPLE_SIZE),
+            gtagConfigSample: gtagConfig?.slice(0, SUMMARY_SAMPLE_SIZE),
+            transformationSample: transformation?.slice(0, SUMMARY_SAMPLE_SIZE),
         };
     }
-    // Get the requested resource and paginate
+    // Get the requested resource and paginate (full data access)
     const resourceMap = {
         tag: tag || [],
         trigger: trigger || [],
@@ -56,10 +76,14 @@ export function processVersionData(versionData, resourceType, page = 1, itemsPer
     };
     const items = resourceMap[resourceType] || [];
     const paginatedResult = paginateArray(items, page, itemsPerPage);
-    return {
+    const result = {
         version: baseVersion,
-        summary,
         [resourceType]: paginatedResult.data,
         [`${resourceType}Pagination`]: paginatedResult.pagination,
     };
+    // Add summary if requested
+    if (includeSummary) {
+        result.summary = summary;
+    }
+    return result;
 }

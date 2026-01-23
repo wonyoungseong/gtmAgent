@@ -21,20 +21,24 @@ gtm_tag({ action: "list" })
 ### 2. 중복 체크
 
 ```javascript
-// 3-Layer 체크
-gtm_tag({ action: "list" })      // 태그명 중복
-gtm_trigger({ action: "list" })  // 트리거명/이벤트명 중복
-gtm_variable({ action: "list" }) // 변수명 중복
+// 3-Layer 체크 - 병렬 조회 (동시 실행)
+// ├── gtm_tag({ action: "list" })      // 태그명 중복
+// ├── gtm_trigger({ action: "list" })  // 트리거명/이벤트명 중복
+// └── gtm_variable({ action: "list" }) // 변수명 중복
 ```
 
 ### 3. 생성
 
 ```javascript
-// 순서: 변수 → 트리거 → 태그 → description
-gtm_variable({ action: "create", ... })  // 필요시
-gtm_trigger({ action: "create", ... })
-gtm_tag({ action: "create", ... })
-gtm_workspace({ action: "update", ... }) // description
+// 3-1. 병렬 생성 (의존성 없음)
+// ├── gtm_variable({ action: "create", ... })  // 필요시
+// └── gtm_trigger({ action: "create", ... })
+//
+// 3-2. 태그 생성 (트리거 ID 필요)
+// └── gtm_tag({ action: "create", ... })
+//
+// 3-3. description 업데이트
+// └── gtm_workspace({ action: "update", ... })
 ```
 
 ---
@@ -179,9 +183,10 @@ gtm_variable({
 ### Analyze
 
 ```javascript
-gtm_tag({ action: "list" })
-gtm_trigger({ action: "list" })
-gtm_variable({ action: "list" })
+// 병렬 조회 (동시 실행)
+// ├── gtm_tag({ action: "list" })
+// ├── gtm_trigger({ action: "list" })
+// └── gtm_variable({ action: "list" })
 // 요약: 수량, 네이밍 패턴, 미사용 항목
 ```
 

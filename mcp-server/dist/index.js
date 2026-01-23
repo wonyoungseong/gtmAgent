@@ -2,7 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
-import { getCredentialsInfo, log } from "./utils/index.js";
+import { getCredentialsInfo, log, cleanExpiredFileCache } from "./utils/index.js";
 import { registerAllTools, handleToolCall } from "./tools/index.js";
 const server = new Server({
     name: "gtm-mcp-service-account",
@@ -24,6 +24,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 // Start the server
 async function main() {
+    // Clean expired cache files on startup
+    cleanExpiredFileCache();
     const credInfo = getCredentialsInfo();
     if (credInfo) {
         log(`Starting GTM MCP Server (Service Account: ${credInfo.email})`);
