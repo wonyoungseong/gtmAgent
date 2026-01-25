@@ -20,6 +20,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    // ToolResult is compatible with MCP's expected response format
     return await handleToolCall(name, args || {});
 });
 // Start the server

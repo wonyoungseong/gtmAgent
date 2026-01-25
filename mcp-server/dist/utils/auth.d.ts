@@ -16,8 +16,19 @@ declare const ACCESS_TOKEN_JSON_PATH: string;
 declare const SCOPES: string[];
 export declare function saveAccessToken(token: string): void;
 export declare function saveAccessTokenData(data: AccessTokenData): void;
+/**
+ * Get TagManager client with automatic token validation and refresh
+ * This is the main entry point for getting an authenticated client
+ */
 export declare function getTagManagerClient(): Promise<TagManagerClient>;
+/**
+ * Clear cached client and force re-authentication on next call
+ */
 export declare function clearCachedClient(): void;
+/**
+ * Wrapper for API calls with automatic retry on auth failure
+ */
+export declare function withAuthRetry<T>(operation: (client: TagManagerClient) => Promise<T>, maxRetries?: number): Promise<T>;
 export declare function getCredentialsInfo(): {
     email: string;
     projectId: string;

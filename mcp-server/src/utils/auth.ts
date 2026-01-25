@@ -72,7 +72,18 @@ const SCOPES = [
   "https://www.googleapis.com/auth/tagmanager.publish",
 ];
 
-// Find first .json file in Credential folder
+// Token expiry buffer (refresh 5 minutes before expiry)
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+
+// Singleton state
+let cachedClient: TagManagerClient | null = null;
+let cachedCredentials: ServiceAccountCredentials | null = null;
+let cachedAccessTokenData: AccessTokenData | null = null;
+let authType: "service-account" | "oauth2" | "access-token" | null = null;
+let lastValidationTime: number = 0;
+
+// ==================== Utility Functions ====================
+
 function findCredentialInFolder(folderPath: string): string | null {
   try {
     if (!existsSync(folderPath)) return null;
@@ -89,22 +100,13 @@ function findCredentialInFolder(folderPath: string): string | null {
 
 // Service Account credential paths to check (in priority order)
 const CREDENTIAL_PATHS = [
-  // 1. Environment variable (explicit path)
   process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  // 2. GTM MCP config directory (setup by gtm-mcp-setup)
   SERVICE_ACCOUNT_PATH,
-  // 3. Credential folder (development)
   findCredentialInFolder(credentialFolder),
-  // 4. Current directory
   join(process.cwd(), "service-account.json"),
   join(process.cwd(), "credentials.json"),
-  // 5. Legacy config directory
   join(homedir(), ".config", "gtm-mcp", "service-account.json"),
 ];
-
-let cachedClient: TagManagerClient | null = null;
-let cachedCredentials: ServiceAccountCredentials | null = null;
-let authType: "service-account" | "oauth2" | "access-token" | null = null;
 
 function findCredentialsFile(): string | null {
   for (const path of CREDENTIAL_PATHS) {
@@ -114,6 +116,74 @@ function findCredentialsFile(): string | null {
   }
   return null;
 }
+
+// ==================== Token Validation ====================
+
+/**
+ * Check if token needs refresh (expired or near expiry)
+ */
+function isTokenExpiredOrNearExpiry(expiryDate?: number): boolean {
+  if (!expiryDate) return false; // No expiry means we can't check
+  return Date.now() > (expiryDate - TOKEN_EXPIRY_BUFFER_MS);
+}
+
+/**
+ * Validate and refresh access token if needed
+ * Returns refreshed token data or null if refresh failed
+ */
+async function validateAndRefreshToken(tokenData: AccessTokenData): Promise<AccessTokenData | null> {
+  const hasRefreshCapability = tokenData.refresh_token && tokenData.client_id && tokenData.client_secret;
+
+  // If no expiry date, assume token is valid (can't check)
+  if (!tokenData.expiry_date) {
+    return tokenData;
+  }
+
+  // Check if token is still valid
+  if (!isTokenExpiredOrNearExpiry(tokenData.expiry_date)) {
+    return tokenData;
+  }
+
+  // Token expired or near expiry - need refresh
+  if (!hasRefreshCapability) {
+    console.error("[GTM MCP] Token expired and cannot be refreshed (missing refresh_token or client credentials)");
+    return null;
+  }
+
+  console.error("[GTM MCP] Token expired or near expiry, refreshing...");
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      tokenData.client_id,
+      tokenData.client_secret
+    );
+
+    oauth2Client.setCredentials({
+      refresh_token: tokenData.refresh_token,
+    });
+
+    const { credentials } = await oauth2Client.refreshAccessToken();
+
+    const refreshedData: AccessTokenData = {
+      access_token: credentials.access_token!,
+      refresh_token: credentials.refresh_token || tokenData.refresh_token,
+      expiry_date: credentials.expiry_date ?? undefined,
+      client_id: tokenData.client_id,
+      client_secret: tokenData.client_secret,
+    };
+
+    // Save refreshed token immediately
+    saveAccessTokenData(refreshedData);
+    console.error("[GTM MCP] Token refreshed and saved successfully");
+
+    return refreshedData;
+  } catch (error) {
+    console.error(`[GTM MCP] Token refresh failed: ${error}`);
+    return null;
+  }
+}
+
+// ==================== Credential Loaders ====================
 
 function loadServiceAccountCredentials(): ServiceAccountCredentials | null {
   if (cachedCredentials) {
@@ -125,10 +195,10 @@ function loadServiceAccountCredentials(): ServiceAccountCredentials | null {
   if (envCredentials) {
     try {
       cachedCredentials = JSON.parse(envCredentials);
-      console.error("[GTM MCP] Using credentials from GTM_SERVICE_ACCOUNT_JSON environment variable");
+      console.error("[GTM MCP] Loaded Service Account from environment variable");
       return cachedCredentials!;
     } catch {
-      console.error("[GTM MCP] Invalid JSON in GTM_SERVICE_ACCOUNT_JSON environment variable");
+      console.error("[GTM MCP] Invalid JSON in GTM_SERVICE_ACCOUNT_JSON");
     }
   }
 
@@ -138,10 +208,9 @@ function loadServiceAccountCredentials(): ServiceAccountCredentials | null {
     try {
       const content = readFileSync(credPath, "utf-8");
       const parsed = JSON.parse(content);
-      // Check if it's a service account (has private_key)
       if (parsed.private_key && parsed.client_email) {
         cachedCredentials = parsed;
-        console.error(`[GTM MCP] Using Service Account from ${credPath}`);
+        console.error(`[GTM MCP] Loaded Service Account from ${credPath}`);
         return cachedCredentials!;
       }
     } catch (error) {
@@ -153,23 +222,18 @@ function loadServiceAccountCredentials(): ServiceAccountCredentials | null {
 }
 
 function loadOAuth2Credentials(): OAuth2Credentials | null {
-  // Check environment variable first
   const envOAuth2 = process.env.GTM_OAUTH2_CREDENTIALS_JSON;
   if (envOAuth2) {
     try {
-      const creds = JSON.parse(envOAuth2);
-      console.error("[GTM MCP] Using OAuth2 credentials from GTM_OAUTH2_CREDENTIALS_JSON");
-      return creds;
+      return JSON.parse(envOAuth2);
     } catch {
       console.error("[GTM MCP] Invalid JSON in GTM_OAUTH2_CREDENTIALS_JSON");
     }
   }
 
-  // Check file
   if (existsSync(OAUTH2_CREDENTIALS_PATH)) {
     try {
       const content = readFileSync(OAUTH2_CREDENTIALS_PATH, "utf-8");
-      console.error(`[GTM MCP] Using OAuth2 credentials from ${OAUTH2_CREDENTIALS_PATH}`);
       return JSON.parse(content);
     } catch (error) {
       console.error(`[GTM MCP] Failed to load OAuth2 credentials: ${error}`);
@@ -196,56 +260,68 @@ function saveOAuth2Token(token: OAuth2Token): void {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
   writeFileSync(OAUTH2_TOKEN_PATH, JSON.stringify(token, null, 2));
-  console.error(`[GTM MCP] OAuth2 token saved to ${OAUTH2_TOKEN_PATH}`);
+  console.error(`[GTM MCP] OAuth2 token saved`);
 }
 
-// Load access token data (from env or file - supports both txt and json formats)
+/**
+ * Load access token data from all possible sources
+ * Priority: ENV JSON > ENV plain > JSON file > TXT file
+ */
 function loadAccessTokenData(): AccessTokenData | null {
-  // 1. Environment variable (highest priority) - JSON format
+  // Return cached if recently validated
+  if (cachedAccessTokenData && Date.now() - lastValidationTime < 60000) {
+    return cachedAccessTokenData;
+  }
+
+  let data: AccessTokenData | null = null;
+
+  // 1. Environment variable - JSON format (highest priority)
   const envTokenJson = process.env.GTM_ACCESS_TOKEN_JSON;
   if (envTokenJson) {
     try {
-      const data = JSON.parse(envTokenJson);
-      console.error("[GTM MCP] Using access token from GTM_ACCESS_TOKEN_JSON environment variable");
-      return data;
+      data = JSON.parse(envTokenJson);
+      console.error("[GTM MCP] Loaded token from GTM_ACCESS_TOKEN_JSON");
     } catch {
       console.error("[GTM MCP] Invalid JSON in GTM_ACCESS_TOKEN_JSON");
     }
   }
 
-  // 2. Environment variable - plain token (legacy)
-  const envToken = process.env.GTM_ACCESS_TOKEN;
-  if (envToken) {
-    console.error("[GTM MCP] Using access token from GTM_ACCESS_TOKEN environment variable");
-    return { access_token: envToken.trim() };
+  // 2. Environment variable - plain token
+  if (!data) {
+    const envToken = process.env.GTM_ACCESS_TOKEN;
+    if (envToken) {
+      data = { access_token: envToken.trim() };
+      console.error("[GTM MCP] Loaded token from GTM_ACCESS_TOKEN (no refresh support)");
+    }
   }
 
-  // 3. JSON file (preferred - supports refresh)
-  if (existsSync(ACCESS_TOKEN_JSON_PATH)) {
+  // 3. JSON file (supports refresh)
+  if (!data && existsSync(ACCESS_TOKEN_JSON_PATH)) {
     try {
       const content = readFileSync(ACCESS_TOKEN_JSON_PATH, "utf-8");
-      const data = JSON.parse(content);
-      console.error(`[GTM MCP] Using access token from ${ACCESS_TOKEN_JSON_PATH}`);
-      return data;
+      data = JSON.parse(content);
+      console.error(`[GTM MCP] Loaded token from ${ACCESS_TOKEN_JSON_PATH}`);
     } catch (error) {
       console.error(`[GTM MCP] Failed to load access token JSON: ${error}`);
     }
   }
 
-  // 4. Plain text file (legacy - no refresh support)
-  if (existsSync(ACCESS_TOKEN_PATH)) {
+  // 4. Plain text file (legacy)
+  if (!data && existsSync(ACCESS_TOKEN_PATH)) {
     try {
       const token = readFileSync(ACCESS_TOKEN_PATH, "utf-8").trim();
       if (token) {
-        console.error(`[GTM MCP] Using access token from ${ACCESS_TOKEN_PATH} (no refresh support)`);
-        return { access_token: token };
+        data = { access_token: token };
+        console.error(`[GTM MCP] Loaded token from ${ACCESS_TOKEN_PATH} (no refresh support)`);
       }
     } catch (error) {
       console.error(`[GTM MCP] Failed to load access token: ${error}`);
     }
   }
 
-  return null;
+  cachedAccessTokenData = data;
+  lastValidationTime = Date.now();
+  return data;
 }
 
 // Legacy function for backward compatibility
@@ -254,23 +330,33 @@ function loadAccessToken(): string | null {
   return data?.access_token || null;
 }
 
-// Save access token to file (legacy - plain text)
 export function saveAccessToken(token: string): void {
   if (!existsSync(CONFIG_DIR)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
+
+  // Save to both TXT and JSON for consistency
+  // JSON has higher priority, so we must update it too
   writeFileSync(ACCESS_TOKEN_PATH, token.trim());
-  console.error(`[GTM MCP] Access token saved to ${ACCESS_TOKEN_PATH}`);
+
+  const jsonData: AccessTokenData = { access_token: token.trim() };
+  writeFileSync(ACCESS_TOKEN_JSON_PATH, JSON.stringify(jsonData, null, 2));
+
+  clearCachedClient(); // Clear cache when token changes
+  console.error(`[GTM MCP] Access token saved to both TXT and JSON files`);
 }
 
-// Save access token data to JSON file (supports refresh)
 export function saveAccessTokenData(data: AccessTokenData): void {
   if (!existsSync(CONFIG_DIR)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
   writeFileSync(ACCESS_TOKEN_JSON_PATH, JSON.stringify(data, null, 2));
-  console.error(`[GTM MCP] Access token data saved to ${ACCESS_TOKEN_JSON_PATH}`);
+  cachedAccessTokenData = data;
+  lastValidationTime = Date.now();
+  console.error(`[GTM MCP] Access token data saved`);
 }
+
+// ==================== Client Creation ====================
 
 async function createServiceAccountClient(): Promise<TagManagerClient | null> {
   const credentials = loadServiceAccountCredentials();
@@ -319,65 +405,62 @@ async function createOAuth2Client(): Promise<TagManagerClient | null> {
     "http://localhost:3000/oauth2callback"
   );
 
-  // Check for existing token
-  const token = loadOAuth2Token();
-  if (token) {
-    oauth2Client.setCredentials(token);
+  let token = loadOAuth2Token();
+  if (!token) {
+    console.error("[GTM MCP] OAuth2 token not found. Run 'gtm-mcp-oauth' to authenticate.");
+    return null;
+  }
 
-    // Check if token is expired
-    if (token.expiry_date && token.expiry_date > Date.now()) {
-      const client = google.tagmanager({
-        version: "v2",
-        auth: oauth2Client,
-      });
-      authType = "oauth2";
-      console.error("[GTM MCP] Authenticated with OAuth2 (existing token)");
-      return client;
-    }
-
-    // Try to refresh the token
+  // Validate and refresh if needed
+  if (token.expiry_date && isTokenExpiredOrNearExpiry(token.expiry_date)) {
     if (token.refresh_token) {
       try {
+        console.error("[GTM MCP] OAuth2 token expired, refreshing...");
         const { credentials: newCredentials } = await oauth2Client.refreshAccessToken();
-        const newToken: OAuth2Token = {
+        token = {
           access_token: newCredentials.access_token!,
           refresh_token: newCredentials.refresh_token || token.refresh_token,
           scope: newCredentials.scope!,
           token_type: newCredentials.token_type!,
           expiry_date: newCredentials.expiry_date!,
         };
-        saveOAuth2Token(newToken);
-        oauth2Client.setCredentials(newToken);
-
-        const client = google.tagmanager({
-          version: "v2",
-          auth: oauth2Client,
-        });
-        authType = "oauth2";
-        console.error("[GTM MCP] Authenticated with OAuth2 (refreshed token)");
-        return client;
+        saveOAuth2Token(token);
       } catch (error) {
-        console.error(`[GTM MCP] Failed to refresh OAuth2 token: ${error}`);
+        console.error(`[GTM MCP] OAuth2 token refresh failed: ${error}`);
+        return null;
       }
+    } else {
+      console.error("[GTM MCP] OAuth2 token expired and no refresh_token available");
+      return null;
     }
   }
 
-  // No valid token - need to perform OAuth2 flow
-  console.error("[GTM MCP] OAuth2 token not found or expired. Run 'gtm-mcp-oauth' to authenticate.");
-  return null;
+  oauth2Client.setCredentials(token);
+
+  const client = google.tagmanager({
+    version: "v2",
+    auth: oauth2Client,
+  });
+
+  authType = "oauth2";
+  console.error("[GTM MCP] Authenticated with OAuth2");
+  return client;
 }
 
-// Create client with direct access token (with optional refresh support)
 async function createAccessTokenClient(): Promise<TagManagerClient | null> {
-  const tokenData = loadAccessTokenData();
+  let tokenData = loadAccessTokenData();
+  if (!tokenData) {
+    return null;
+  }
+
+  // Validate and refresh token upfront
+  tokenData = await validateAndRefreshToken(tokenData);
   if (!tokenData) {
     return null;
   }
 
   try {
-    // If we have client credentials, we can create a proper OAuth2 client with refresh
     const hasRefreshCapability = tokenData.refresh_token && tokenData.client_id && tokenData.client_secret;
-
     let oauth2Client: InstanceType<typeof google.auth.OAuth2>;
 
     if (hasRefreshCapability) {
@@ -392,57 +475,28 @@ async function createAccessTokenClient(): Promise<TagManagerClient | null> {
         expiry_date: tokenData.expiry_date,
       });
 
-      // Check if token is expired and refresh if needed
-      const isExpired = tokenData.expiry_date && tokenData.expiry_date < Date.now();
-      if (isExpired) {
-        console.error("[GTM MCP] Access token expired, attempting refresh...");
-        try {
-          const { credentials: newCredentials } = await oauth2Client.refreshAccessToken();
-          const updatedData: AccessTokenData = {
-            access_token: newCredentials.access_token!,
-            refresh_token: newCredentials.refresh_token || tokenData.refresh_token,
-            expiry_date: newCredentials.expiry_date!,
-            client_id: tokenData.client_id,
-            client_secret: tokenData.client_secret,
-          };
-          saveAccessTokenData(updatedData);
-          oauth2Client.setCredentials(updatedData);
-          console.error("[GTM MCP] Access token refreshed successfully");
-        } catch (refreshError) {
-          console.error(`[GTM MCP] Failed to refresh access token: ${refreshError}`);
-          return null;
-        }
-      }
-
-      // Set up automatic token refresh on expiry
+      // Set up automatic token refresh
       oauth2Client.on('tokens', (tokens) => {
         if (tokens.access_token) {
           const updatedData: AccessTokenData = {
             access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token || tokenData.refresh_token,
+            refresh_token: tokens.refresh_token || tokenData!.refresh_token,
             expiry_date: tokens.expiry_date ?? undefined,
-            client_id: tokenData.client_id,
-            client_secret: tokenData.client_secret,
+            client_id: tokenData!.client_id,
+            client_secret: tokenData!.client_secret,
           };
           saveAccessTokenData(updatedData);
-          console.error("[GTM MCP] Access token auto-refreshed and saved");
+          console.error("[GTM MCP] Token auto-refreshed and saved");
         }
       });
 
-      console.error("[GTM MCP] Authenticated with access token (refresh enabled)");
+      console.error("[GTM MCP] Authenticated with access token (auto-refresh enabled)");
     } else {
-      // No refresh capability - simple access token mode
       oauth2Client = new google.auth.OAuth2();
       oauth2Client.setCredentials({
         access_token: tokenData.access_token,
       });
-
-      if (!tokenData.refresh_token) {
-        console.error("[GTM MCP] Warning: No refresh_token - token cannot be auto-refreshed");
-        console.error("[GTM MCP] Consider using access-token.json with refresh_token, client_id, client_secret");
-      }
-
-      console.error("[GTM MCP] Authenticated with direct access token (no refresh)");
+      console.error("[GTM MCP] Authenticated with access token (no auto-refresh)");
     }
 
     const client = google.tagmanager({
@@ -458,12 +512,33 @@ async function createAccessTokenClient(): Promise<TagManagerClient | null> {
   }
 }
 
+// ==================== Main API ====================
+
+/**
+ * Get TagManager client with automatic token validation and refresh
+ * This is the main entry point for getting an authenticated client
+ */
 export async function getTagManagerClient(): Promise<TagManagerClient> {
+  // Check if cached client is still valid
   if (cachedClient) {
-    return cachedClient;
+    // For access-token auth, validate token periodically
+    if (authType === "access-token" && cachedAccessTokenData) {
+      const needsRevalidation = Date.now() - lastValidationTime > 60000; // Revalidate every minute
+
+      if (needsRevalidation && cachedAccessTokenData.expiry_date) {
+        if (isTokenExpiredOrNearExpiry(cachedAccessTokenData.expiry_date)) {
+          console.error("[GTM MCP] Cached client token expired, recreating...");
+          cachedClient = null;
+        }
+      }
+    }
+
+    if (cachedClient) {
+      return cachedClient;
+    }
   }
 
-  // 1. Try Service Account first
+  // 1. Try Service Account
   cachedClient = await createServiceAccountClient();
   if (cachedClient) {
     return cachedClient;
@@ -475,7 +550,7 @@ export async function getTagManagerClient(): Promise<TagManagerClient> {
     return cachedClient;
   }
 
-  // 3. Try direct access token (Developer mode)
+  // 3. Try Access Token
   cachedClient = await createAccessTokenClient();
   if (cachedClient) {
     return cachedClient;
@@ -484,27 +559,65 @@ export async function getTagManagerClient(): Promise<TagManagerClient> {
   throw new Error(
     "No valid credentials found. Please configure one of the following:\n\n" +
     "Option 1: Service Account (Recommended for automation)\n" +
-    "  - Run 'gtm-mcp-setup' to configure Service Account credentials\n" +
-    "  - Or set GOOGLE_APPLICATION_CREDENTIALS environment variable\n\n" +
+    "  - Run 'gtm-mcp-setup' to configure Service Account credentials\n\n" +
     "Option 2: OAuth2 (For personal use with refresh)\n" +
     "  - Place OAuth2 credentials at ~/.gtm-mcp/oauth2-credentials.json\n" +
     "  - Run 'gtm-mcp-oauth' to authenticate\n\n" +
-    "Option 3: Access Token (Developer mode - simplest)\n" +
-    "  - Get token from https://developers.google.com/oauthplayground/\n" +
-    "  - Set GTM_ACCESS_TOKEN environment variable\n" +
-    "  - Or save to ~/.gtm-mcp/access-token.txt\n"
+    "Option 3: Access Token (Developer mode)\n" +
+    "  - Save token JSON to ~/.gtm-mcp/access-token.json with format:\n" +
+    "    { \"access_token\": \"...\", \"refresh_token\": \"...\", \"client_id\": \"...\", \"client_secret\": \"...\", \"expiry_date\": ... }\n"
   );
 }
 
-// Clear cached client (useful when token expires)
+/**
+ * Clear cached client and force re-authentication on next call
+ */
 export function clearCachedClient(): void {
   cachedClient = null;
+  cachedAccessTokenData = null;
   authType = null;
+  lastValidationTime = 0;
   console.error("[GTM MCP] Cached client cleared");
 }
 
+/**
+ * Wrapper for API calls with automatic retry on auth failure
+ */
+export async function withAuthRetry<T>(
+  operation: (client: TagManagerClient) => Promise<T>,
+  maxRetries: number = 1
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const client = await getTagManagerClient();
+      return await operation(client);
+    } catch (error: any) {
+      lastError = error;
+
+      // Check if it's an auth error (401 or token-related)
+      const isAuthError =
+        error?.code === 401 ||
+        error?.response?.status === 401 ||
+        error?.message?.includes('invalid_grant') ||
+        error?.message?.includes('Token has been expired') ||
+        error?.message?.includes('Invalid Credentials');
+
+      if (isAuthError && attempt < maxRetries) {
+        console.error(`[GTM MCP] Auth error detected, clearing cache and retrying (attempt ${attempt + 1}/${maxRetries})...`);
+        clearCachedClient();
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 export function getCredentialsInfo(): { email: string; projectId: string; type: string } | null {
-  // Check Service Account
   const saCredentials = loadServiceAccountCredentials();
   if (saCredentials) {
     return {
@@ -514,7 +627,6 @@ export function getCredentialsInfo(): { email: string; projectId: string; type: 
     };
   }
 
-  // Check OAuth2
   const oauth2Credentials = loadOAuth2Credentials();
   const oauth2Token = loadOAuth2Token();
   if (oauth2Credentials && oauth2Token) {
@@ -526,7 +638,6 @@ export function getCredentialsInfo(): { email: string; projectId: string; type: 
     };
   }
 
-  // Check Access Token
   const accessToken = loadAccessToken();
   if (accessToken) {
     return {
@@ -579,7 +690,6 @@ export async function performOAuth2Flow(): Promise<boolean> {
   console.log(authUrl);
   console.log("\nWaiting for authorization...\n");
 
-  // Start local server to receive callback
   return new Promise((resolve) => {
     const server = http.createServer(async (req, res) => {
       if (req.url?.startsWith("/oauth2callback")) {
@@ -628,7 +738,6 @@ export async function performOAuth2Flow(): Promise<boolean> {
     });
 
     server.listen(3000, () => {
-      // Try to open browser
       const openCommand = process.platform === "win32" ? "start" :
                          process.platform === "darwin" ? "open" : "xdg-open";
       import("child_process").then(({ exec }) => {
@@ -636,7 +745,6 @@ export async function performOAuth2Flow(): Promise<boolean> {
       });
     });
 
-    // Timeout after 5 minutes
     setTimeout(() => {
       console.error("\nAuthentication timed out.");
       server.close();

@@ -4,12 +4,15 @@ export {
   getAuthType,
   performOAuth2Flow,
   saveAccessToken,
+  saveAccessTokenData,
   clearCachedClient,
+  withAuthRetry,
   CONFIG_DIR,
   OAUTH2_CREDENTIALS_PATH,
   OAUTH2_TOKEN_PATH,
   SERVICE_ACCOUNT_PATH,
   ACCESS_TOKEN_PATH,
+  ACCESS_TOKEN_JSON_PATH,
   SCOPES
 } from "./auth.js";
 

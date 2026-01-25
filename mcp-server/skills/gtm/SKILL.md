@@ -20,6 +20,7 @@ description: GTM 컨테이너 관리. 분석, 이벤트 추가, 검증, 디버�
 <rule name="Entity Reference 필수">태그/트리거/변수 언급 시 이름을 먼저 쓰고 ID는 괄호 안에 표기하세요. 예: HTML - Update Session & Reset Flag (Tag 185)</rule>
 <rule name="Naming Convention Check">컨테이너 최초 접근 시 기존 네이밍 패턴을 먼저 학습하고, 분석 결과를 사용자에게 공유한 후 생성하세요. 패턴이 없으면 기본 규칙을 추천하세요.</rule>
 <rule name="캐시 갱신">create/update 후 또는 사용자가 "GTM에서 수정", "최신 데이터" 언급 시 list 호출에 refresh: true를 추가하세요.</rule>
+<rule name="Migration Naming Convention">태그/트리거/변수를 다른 프로퍼티로 이식(migration/copy)할 때, 반드시 TARGET 프로퍼티의 네이밍 컨벤션을 따르세요. SOURCE의 패턴이 아닌 TARGET의 기존 패턴을 분석하여 적용하세요.</rule>
 </rules>
 
 <naming_convention_check>
@@ -27,12 +28,17 @@ description: GTM 컨테이너 관리. 분석, 이벤트 추가, 검증, 디버�
 
 **컨테이너 최초 접근 시, 기존 네이밍 패턴을 먼저 학습하세요.**
 
+### ⚠️ 중요: 전체 엔티티 확인 필수
+- **모든 페이지를 확인**하세요. 첫 페이지만 보고 "패턴 없음"이라고 단정하지 마세요.
+- 특정 타입(HTML, CE, JS 등)의 패턴을 찾을 때 **모든 태그/트리거/변수를 검토**하세요.
+- 같은 컨테이너 내에서도 여러 패턴이 혼재할 수 있습니다 (예: `HTML -`와 `cHTML -` 공존).
+
 ### 워크플로우
 ```
 1. 컨테이너 접근
    ↓
-2. 병렬 조회 (동시 실행)
-   ├── gtm_tag: 태그 목록
+2. 전체 조회 (모든 페이지 확인!)
+   ├── gtm_tag: 태그 목록 (page=1, 2, 3...)
    ├── gtm_trigger: 트리거 목록
    └── gtm_variable: 변수 목록
    ↓
@@ -58,6 +64,54 @@ description: GTM 컨테이너 관리. 분석, 이벤트 추가, 검증, 디버�
 
 **⚠️ 기본 규칙 사용 시에도 사용자에게 먼저 확인받으세요.**
 </naming_convention_check>
+
+<migration_naming_rule>
+## Migration Naming Convention (중요!)
+
+**다른 프로퍼티에서 태그/트리거/변수를 이식(copy/migration)할 때, SOURCE가 아닌 TARGET 프로퍼티의 네이밍 컨벤션을 따르세요.**
+
+### 원칙
+```
+❌ 잘못된 접근: SOURCE 프로퍼티의 패턴을 그대로 가져옴
+✅ 올바른 접근: TARGET 프로퍼티의 기존 패턴을 분석하고 적용
+```
+
+### 워크플로우
+```
+1. SOURCE 분석
+   └── 이식할 태그/트리거/변수의 로직과 기능 파악
+
+2. TARGET 분석 (필수!)
+   ├── gtm_tag({ action: "list", ... })
+   ├── gtm_trigger({ action: "list", ... })
+   └── gtm_variable({ action: "list", ... })
+   └── TARGET의 네이밍 패턴 학습
+
+3. 네이밍 변환
+   └── SOURCE 이름 → TARGET 컨벤션으로 변환
+
+4. 사용자 확인
+   └── 변환된 이름을 사용자에게 확인
+
+5. 생성
+   └── TARGET 컨벤션에 맞는 이름으로 생성
+```
+
+### 예시
+| SOURCE (Amoremall) | TARGET (Shopify) | 적용할 이름 |
+|-------------------|------------------|-------------|
+| `HTML - Push QV Event` | 기존 패턴: `cHTML -` | `cHTML - Push QV Event` |
+| `CE - Ap Scroll 50%` | 기존 패턴: `CE -` | `CE - Ap Scroll 50%` |
+| `JS - Session Flag` | 기존 패턴: `jsVar -` | `jsVar - Session Flag` |
+
+### 체크리스트
+- [ ] TARGET 프로퍼티의 기존 태그/트리거/변수 목록 조회
+- [ ] TARGET의 네이밍 패턴 분석 (prefix, 대소문자, 구분자 등)
+- [ ] SOURCE 로직을 TARGET 컨벤션에 맞게 이름 변환
+- [ ] 사용자에게 변환된 이름 확인
+
+**⚠️ SOURCE의 네이밍 패턴을 무조건 따르지 마세요. 항상 TARGET 프로퍼티가 기준입니다.**
+</migration_naming_rule>
 
 <entity_reference>
 ## Entity Reference 규칙

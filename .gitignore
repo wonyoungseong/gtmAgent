@@ -28,5 +28,5 @@ mcp-reference/
 !.claude/skills/
 !.claude/commands/
 
-# Separate tools (not part of MCP)
-tools/
+# Separate tools (not part of MCP) - only root level
+/tools/
