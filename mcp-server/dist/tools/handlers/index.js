@@ -28,6 +28,7 @@ import { handleGtmVersionHeader } from "./version-header.handler.js";
 import { handleGtmZone } from "./zone.handler.js";
 import { handleGtmExportFull } from "./export.handler.js";
 import { handleGtmCache } from "./cache.handler.js";
+import { handleGtmWorkflow } from "./workflow.handler.js";
 const handlers = {
     gtm_context: handleGtmContext,
     gtm_account: handleGtmAccount,
@@ -50,6 +51,7 @@ const handlers = {
     gtm_zone: handleGtmZone,
     gtm_export_full: handleGtmExportFull,
     gtm_cache: handleGtmCache,
+    gtm_workflow: handleGtmWorkflow,
 };
 // ==================== Special Handler ====================
 const handleGtmRemoveSession = async (_tagmanager, _args) => {
@@ -85,4 +87,4 @@ export const handleToolCall = async (name, args) => {
     }
 };
 // ==================== Exports ====================
-export { handleGtmContext, handleGtmAccount, handleGtmContainer, handleGtmWorkspace, handleGtmTag, handleGtmTrigger, handleGtmVariable, handleGtmVersion, handleGtmBuiltInVariable, handleGtmClient, handleGtmDestination, handleGtmEnvironment, handleGtmFolder, handleGtmGtagConfig, handleGtmTemplate, handleGtmTransformation, handleGtmUserPermission, handleGtmVersionHeader, handleGtmZone, handleGtmExportFull, handleGtmCache, };
+export { handleGtmContext, handleGtmAccount, handleGtmContainer, handleGtmWorkspace, handleGtmTag, handleGtmTrigger, handleGtmVariable, handleGtmVersion, handleGtmBuiltInVariable, handleGtmClient, handleGtmDestination, handleGtmEnvironment, handleGtmFolder, handleGtmGtagConfig, handleGtmTemplate, handleGtmTransformation, handleGtmUserPermission, handleGtmVersionHeader, handleGtmZone, handleGtmExportFull, handleGtmCache, handleGtmWorkflow, };

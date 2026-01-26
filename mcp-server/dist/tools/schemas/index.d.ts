@@ -12,5 +12,6 @@ import { gtmTagSchema } from "./tag.schema.js";
 import { gtmTriggerSchema } from "./trigger.schema.js";
 import { gtmVariableSchema } from "./variable.schema.js";
 import { gtmVersionSchema, gtmBuiltInVariableSchema, gtmClientSchema, gtmDestinationSchema, gtmEnvironmentSchema, gtmFolderSchema, gtmGtagConfigSchema, gtmTemplateSchema, gtmTransformationSchema, gtmUserPermissionSchema, gtmVersionHeaderSchema, gtmZoneSchema, gtmExportFullSchema, gtmRemoveSessionSchema, gtmCacheSchema } from "./other.schema.js";
+import { gtmWorkflowSchema } from "./workflow.schema.js";
 export declare const allSchemas: ToolSchema[];
-export { gtmContextSchema, gtmAccountSchema, gtmContainerSchema, gtmWorkspaceSchema, gtmTagSchema, gtmTriggerSchema, gtmVariableSchema, gtmVersionSchema, gtmBuiltInVariableSchema, gtmClientSchema, gtmDestinationSchema, gtmEnvironmentSchema, gtmFolderSchema, gtmGtagConfigSchema, gtmTemplateSchema, gtmTransformationSchema, gtmUserPermissionSchema, gtmVersionHeaderSchema, gtmZoneSchema, gtmExportFullSchema, gtmRemoveSessionSchema, gtmCacheSchema, };
+export { gtmContextSchema, gtmAccountSchema, gtmContainerSchema, gtmWorkspaceSchema, gtmTagSchema, gtmTriggerSchema, gtmVariableSchema, gtmVersionSchema, gtmBuiltInVariableSchema, gtmClientSchema, gtmDestinationSchema, gtmEnvironmentSchema, gtmFolderSchema, gtmGtagConfigSchema, gtmTemplateSchema, gtmTransformationSchema, gtmUserPermissionSchema, gtmVersionHeaderSchema, gtmZoneSchema, gtmExportFullSchema, gtmRemoveSessionSchema, gtmCacheSchema, gtmWorkflowSchema, };

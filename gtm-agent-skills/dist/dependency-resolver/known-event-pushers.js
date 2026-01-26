@@ -1,0 +1,58 @@
+"use strict";
+/**
+ * Known Event Pushers
+ * 알려진 커스텀 템플릿의 이벤트 push 매핑
+ *
+ * 커스텀 템플릿은 sandboxed JavaScript로 코드 분석이 어려우므로
+ * 알려진 템플릿만 명시적으로 매핑합니다.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.KNOWN_TEMPLATE_EVENTS = void 0;
+exports.extractTemplateEvents = extractTemplateEvents;
+exports.addKnownTemplateEvents = addKnownTemplateEvents;
+exports.getAllKnownEvents = getAllKnownEvents;
+/**
+ * 알려진 커스텀 템플릿이 push하는 이벤트 목록
+ * key: 템플릿 타입 (cvt_xxx 형식)
+ * value: 해당 템플릿이 push하는 이벤트 이름 배열
+ */
+exports.KNOWN_TEMPLATE_EVENTS = {
+    // Gtag API Get 템플릿 - gtagApiGet 이벤트 push
+    'cvt_KDDGR': ['gtagApiGet'],
+    // 추가 템플릿 매핑...
+    // 예: 'cvt_XXXXX': ['customEvent1', 'customEvent2'],
+};
+/**
+ * 커스텀 템플릿 태그에서 push하는 이벤트 추출
+ */
+function extractTemplateEvents(tag) {
+    // cvt_ 접두사 (Custom Variable Template) 또는 다른 커스텀 템플릿 확인
+    if (tag.type?.startsWith('cvt_')) {
+        return exports.KNOWN_TEMPLATE_EVENTS[tag.type] || [];
+    }
+    // 일부 템플릿은 templateId를 통해 식별될 수 있음
+    if (tag.templateId) {
+        // templateId에서 템플릿 타입 추출 시도
+        // 예: "accounts/xxx/containers/xxx/workspaces/xxx/templates/123"
+        // 현재는 type 기반 매핑만 사용
+    }
+    return [];
+}
+/**
+ * 알려진 템플릿 이벤트 매핑 추가 (런타임)
+ * 동적으로 새 템플릿 매핑을 추가할 때 사용
+ */
+function addKnownTemplateEvents(templateType, events) {
+    exports.KNOWN_TEMPLATE_EVENTS[templateType] = events;
+}
+/**
+ * 모든 알려진 이벤트 이름 반환
+ */
+function getAllKnownEvents() {
+    const allEvents = [];
+    for (const events of Object.values(exports.KNOWN_TEMPLATE_EVENTS)) {
+        allEvents.push(...events);
+    }
+    return [...new Set(allEvents)];
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoia25vd24tZXZlbnQtcHVzaGVycy5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9kZXBlbmRlbmN5LXJlc29sdmVyL2tub3duLWV2ZW50LXB1c2hlcnMudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IjtBQUFBOzs7Ozs7R0FNRzs7O0FBb0JILHNEQWNDO0FBTUQsd0RBRUM7QUFLRCw4Q0FNQztBQWpERDs7OztHQUlHO0FBQ1UsUUFBQSxxQkFBcUIsR0FBNkI7SUFDN0QseUNBQXlDO0lBQ3pDLFdBQVcsRUFBRSxDQUFDLFlBQVksQ0FBQztJQUUzQixlQUFlO0lBQ2Ysb0RBQW9EO0NBQ3JELENBQUM7QUFFRjs7R0FFRztBQUNILFNBQWdCLHFCQUFxQixDQUFDLEdBQVc7SUFDL0MsdURBQXVEO0lBQ3ZELElBQUksR0FBRyxDQUFDLElBQUksRUFBRSxVQUFVLENBQUMsTUFBTSxDQUFDLEVBQUUsQ0FBQztRQUNqQyxPQUFPLDZCQUFxQixDQUFDLEdBQUcsQ0FBQyxJQUFJLENBQUMsSUFBSSxFQUFFLENBQUM7SUFDL0MsQ0FBQztJQUVELGtDQUFrQztJQUNsQyxJQUFJLEdBQUcsQ0FBQyxVQUFVLEVBQUUsQ0FBQztRQUNuQiw0QkFBNEI7UUFDNUIsZ0VBQWdFO1FBQ2hFLHFCQUFxQjtJQUN2QixDQUFDO0lBRUQsT0FBTyxFQUFFLENBQUM7QUFDWixDQUFDO0FBRUQ7OztHQUdHO0FBQ0gsU0FBZ0Isc0JBQXNCLENBQUMsWUFBb0IsRUFBRSxNQUFnQjtJQUMzRSw2QkFBcUIsQ0FBQyxZQUFZLENBQUMsR0FBRyxNQUFNLENBQUM7QUFDL0MsQ0FBQztBQUVEOztHQUVHO0FBQ0gsU0FBZ0IsaUJBQWlCO0lBQy9CLE1BQU0sU0FBUyxHQUFhLEVBQUUsQ0FBQztJQUMvQixLQUFLLE1BQU0sTUFBTSxJQUFJLE1BQU0sQ0FBQyxNQUFNLENBQUMsNkJBQXFCLENBQUMsRUFBRSxDQUFDO1FBQzFELFNBQVMsQ0FBQyxJQUFJLENBQUMsR0FBRyxNQUFNLENBQUMsQ0FBQztJQUM1QixDQUFDO0lBQ0QsT0FBTyxDQUFDLEdBQUcsSUFBSSxHQUFHLENBQUMsU0FBUyxDQUFDLENBQUMsQ0FBQztBQUNqQyxDQUFDIiwic291cmNlc0NvbnRlbnQiOlsiLyoqXG4gKiBLbm93biBFdmVudCBQdXNoZXJzXG4gKiDslYzroKTsp4Qg7Luk7Iqk7YWAIO2FnO2UjOumv+ydmCDsnbTrsqTtirggcHVzaCDrp6TtlZFcbiAqXG4gKiDsu6TsiqTthYAg7YWc7ZSM66a/7J2AIHNhbmRib3hlZCBKYXZhU2NyaXB066GcIOy9lOuTnCDrtoTshJ3snbQg7Ja066Ck7Jqw66+A66GcXG4gKiDslYzroKTsp4Qg7YWc7ZSM66a/66eMIOuqheyLnOyggeycvOuhnCDrp6TtlZHtlanri4jri6QuXG4gKi9cblxuaW1wb3J0IHsgR1RNVGFnIH0gZnJvbSAnLi4vdHlwZXMvZ3RtJztcblxuLyoqXG4gKiDslYzroKTsp4Qg7Luk7Iqk7YWAIO2FnO2UjOumv+ydtCBwdXNo7ZWY64qUIOydtOuypO2KuCDrqqnroZ1cbiAqIGtleTog7YWc7ZSM66a/IO2DgOyehSAoY3Z0X3h4eCDtmJXsi50pXG4gKiB2YWx1ZTog7ZW064u5IO2FnO2UjOumv+ydtCBwdXNo7ZWY64qUIOydtOuypO2KuCDsnbTrpoQg67Cw7Je0XG4gKi9cbmV4cG9ydCBjb25zdCBLTk9XTl9URU1QTEFURV9FVkVOVFM6IFJlY29yZDxzdHJpbmcsIHN0cmluZ1tdPiA9IHtcbiAgLy8gR3RhZyBBUEkgR2V0IO2FnO2UjOumvyAtIGd0YWdBcGlHZXQg7J2067Kk7Yq4IHB1c2hcbiAgJ2N2dF9LRERHUic6IFsnZ3RhZ0FwaUdldCddLFxuXG4gIC8vIOy2lOqwgCDthZztlIzrpr8g66ek7ZWRLi4uXG4gIC8vIOyYiDogJ2N2dF9YWFhYWCc6IFsnY3VzdG9tRXZlbnQxJywgJ2N1c3RvbUV2ZW50MiddLFxufTtcblxuLyoqXG4gKiDsu6TsiqTthYAg7YWc7ZSM66a/IO2DnOq3uOyXkOyEnCBwdXNo7ZWY64qUIOydtOuypO2KuCDstpTstpxcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGV4dHJhY3RUZW1wbGF0ZUV2ZW50cyh0YWc6IEdUTVRhZyk6IHN0cmluZ1tdIHtcbiAgLy8gY3Z0XyDsoJHrkZDsgqwgKEN1c3RvbSBWYXJpYWJsZSBUZW1wbGF0ZSkg65iQ64qUIOuLpOuluCDsu6TsiqTthYAg7YWc7ZSM66a/IO2ZleyduFxuICBpZiAodGFnLnR5cGU/LnN0YXJ0c1dpdGgoJ2N2dF8nKSkge1xuICAgIHJldHVybiBLTk9XTl9URU1QTEFURV9FVkVOVFNbdGFnLnR5cGVdIHx8IFtdO1xuICB9XG5cbiAgLy8g7J2867aAIO2FnO2UjOumv+ydgCB0ZW1wbGF0ZUlk66W8IO2Gte2VtCDsi53rs4TrkKAg7IiYIOyeiOydjFxuICBpZiAodGFnLnRlbXBsYXRlSWQpIHtcbiAgICAvLyB0ZW1wbGF0ZUlk7JeQ7IScIO2FnO2UjOumvyDtg4DsnoUg7LaU7LacIOyLnOuPhFxuICAgIC8vIOyYiDogXCJhY2NvdW50cy94eHgvY29udGFpbmVycy94eHgvd29ya3NwYWNlcy94eHgvdGVtcGxhdGVzLzEyM1wiXG4gICAgLy8g7ZiE7J6s64qUIHR5cGUg6riw67CYIOunpO2VkeunjCDsgqzsmqlcbiAgfVxuXG4gIHJldHVybiBbXTtcbn1cblxuLyoqXG4gKiDslYzroKTsp4Qg7YWc7ZSM66a/IOydtOuypO2KuCDrp6TtlZEg7LaU6rCAICjrn7Dtg4DsnoQpXG4gKiDrj5nsoIHsnLzroZwg7IOIIO2FnO2UjOumvyDrp6TtlZHsnYQg7LaU6rCA7ZWgIOuVjCDsgqzsmqlcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGFkZEtub3duVGVtcGxhdGVFdmVudHModGVtcGxhdGVUeXBlOiBzdHJpbmcsIGV2ZW50czogc3RyaW5nW10pOiB2b2lkIHtcbiAgS05PV05fVEVNUExBVEVfRVZFTlRTW3RlbXBsYXRlVHlwZV0gPSBldmVudHM7XG59XG5cbi8qKlxuICog66qo65OgIOyVjOugpOynhCDsnbTrsqTtirgg7J2066aEIOuwmO2ZmFxuICovXG5leHBvcnQgZnVuY3Rpb24gZ2V0QWxsS25vd25FdmVudHMoKTogc3RyaW5nW10ge1xuICBjb25zdCBhbGxFdmVudHM6IHN0cmluZ1tdID0gW107XG4gIGZvciAoY29uc3QgZXZlbnRzIG9mIE9iamVjdC52YWx1ZXMoS05PV05fVEVNUExBVEVfRVZFTlRTKSkge1xuICAgIGFsbEV2ZW50cy5wdXNoKC4uLmV2ZW50cyk7XG4gIH1cbiAgcmV0dXJuIFsuLi5uZXcgU2V0KGFsbEV2ZW50cyldO1xufVxuIl19

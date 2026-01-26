@@ -37,6 +37,7 @@ import {
   gtmRemoveSessionSchema,
   gtmCacheSchema,
 } from "./other.schema.js";
+import { gtmWorkflowSchema } from "./workflow.schema.js";
 
 // ==================== All Schemas ====================
 
@@ -63,6 +64,7 @@ export const allSchemas: ToolSchema[] = [
   gtmExportFullSchema,
   gtmRemoveSessionSchema,
   gtmCacheSchema,
+  gtmWorkflowSchema,
 ];
 
 export {
@@ -88,4 +90,5 @@ export {
   gtmExportFullSchema,
   gtmRemoveSessionSchema,
   gtmCacheSchema,
+  gtmWorkflowSchema,
 };

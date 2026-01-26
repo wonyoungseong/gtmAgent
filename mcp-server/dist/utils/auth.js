@@ -5,6 +5,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import * as http from "http";
 import { URL } from "url";
+import { execSync } from "child_process";
 // Get the directory where this module is located
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,6 +29,9 @@ const SCOPES = [
 ];
 // Token expiry buffer (refresh 5 minutes before expiry)
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+// Environment variable to enable gcloud CLI auth (default: disabled)
+// Set GTM_USE_GCLOUD=true to enable gcloud auth
+const USE_GCLOUD = process.env.GTM_USE_GCLOUD === 'true';
 // Singleton state
 let cachedClient = null;
 let cachedCredentials = null;
@@ -277,6 +281,70 @@ export function saveAccessTokenData(data) {
     lastValidationTime = Date.now();
     console.error(`[GTM MCP] Access token data saved`);
 }
+// ==================== gcloud CLI Authentication ====================
+/**
+ * Get access token from gcloud CLI
+ * Requires: gcloud CLI installed and authenticated
+ *
+ * Priority:
+ * 1. gcloud auth application-default print-access-token (has proper scopes)
+ * 2. gcloud auth print-access-token (fallback, may lack scopes)
+ */
+async function getGcloudAccessToken() {
+    if (!USE_GCLOUD) {
+        return null;
+    }
+    // On Windows, use gcloud.cmd; on Unix, use gcloud
+    const gcloudBase = process.platform === 'win32' ? 'gcloud.cmd' : 'gcloud';
+    // Try user auth first (usually has broader access), then application-default
+    const commands = [
+        `${gcloudBase} auth print-access-token`,
+        `${gcloudBase} auth application-default print-access-token`,
+    ];
+    for (const command of commands) {
+        try {
+            const token = execSync(command, {
+                encoding: 'utf-8',
+                timeout: 10000,
+                stdio: ['pipe', 'pipe', 'pipe']
+            }).trim();
+            // Google access tokens start with 'ya29.'
+            if (token && token.startsWith('ya29.')) {
+                return token;
+            }
+        }
+        catch {
+            // Try next command
+            continue;
+        }
+    }
+    return null;
+}
+/**
+ * Create TagManager client using gcloud CLI token
+ */
+async function createGcloudClient() {
+    const token = await getGcloudAccessToken();
+    if (!token) {
+        return null;
+    }
+    try {
+        const oauth2Client = new google.auth.OAuth2();
+        oauth2Client.setCredentials({ access_token: token });
+        const client = google.tagmanager({
+            version: "v2",
+            auth: oauth2Client,
+        });
+        authType = "gcloud";
+        lastValidationTime = Date.now(); // Track when token was fetched
+        console.error("[GTM MCP] Authenticated with gcloud CLI access token");
+        return client;
+    }
+    catch (error) {
+        console.error(`[GTM MCP] gcloud client creation failed: ${error}`);
+        return null;
+    }
+}
 // ==================== Client Creation ====================
 async function createServiceAccountClient() {
     const credentials = loadServiceAccountCredentials();
@@ -416,6 +484,15 @@ async function createAccessTokenClient() {
 export async function getTagManagerClient() {
     // Check if cached client is still valid
     if (cachedClient) {
+        // For gcloud auth, refresh token every 50 minutes (tokens expire in 1 hour)
+        if (authType === "gcloud") {
+            const gcloudRefreshInterval = 50 * 60 * 1000; // 50 minutes
+            const needsRefresh = Date.now() - lastValidationTime > gcloudRefreshInterval;
+            if (needsRefresh) {
+                console.error("[GTM MCP] gcloud token refresh interval reached, recreating client...");
+                cachedClient = null;
+            }
+        }
         // For access-token auth, validate token periodically
         if (authType === "access-token" && cachedAccessTokenData) {
             const needsRevalidation = Date.now() - lastValidationTime > 60000; // Revalidate every minute
@@ -430,28 +507,38 @@ export async function getTagManagerClient() {
             return cachedClient;
         }
     }
-    // 1. Try Service Account
+    // 1. Try gcloud CLI (highest priority - most convenient for dev)
+    cachedClient = await createGcloudClient();
+    if (cachedClient) {
+        return cachedClient;
+    }
+    // 2. Try Service Account
     cachedClient = await createServiceAccountClient();
     if (cachedClient) {
         return cachedClient;
     }
-    // 2. Try OAuth2
+    // 3. Try OAuth2
     cachedClient = await createOAuth2Client();
     if (cachedClient) {
         return cachedClient;
     }
-    // 3. Try Access Token
+    // 4. Try Access Token
     cachedClient = await createAccessTokenClient();
     if (cachedClient) {
         return cachedClient;
     }
     throw new Error("No valid credentials found. Please configure one of the following:\n\n" +
-        "Option 1: Service Account (Recommended for automation)\n" +
+        "Option 1: gcloud CLI (Easiest for development)\n" +
+        "  - Install gcloud CLI: https://cloud.google.com/sdk/docs/install\n" +
+        "  - Run: gcloud auth login\n" +
+        "  - Token is fetched automatically via 'gcloud auth print-access-token'\n" +
+        "  - Set GTM_USE_GCLOUD=false to disable\n\n" +
+        "Option 2: Service Account (Recommended for automation)\n" +
         "  - Run 'gtm-mcp-setup' to configure Service Account credentials\n\n" +
-        "Option 2: OAuth2 (For personal use with refresh)\n" +
+        "Option 3: OAuth2 (For personal use with refresh)\n" +
         "  - Place OAuth2 credentials at ~/.gtm-mcp/oauth2-credentials.json\n" +
         "  - Run 'gtm-mcp-oauth' to authenticate\n\n" +
-        "Option 3: Access Token (Developer mode)\n" +
+        "Option 4: Access Token (Manual)\n" +
         "  - Save token JSON to ~/.gtm-mcp/access-token.json with format:\n" +
         "    { \"access_token\": \"...\", \"refresh_token\": \"...\", \"client_id\": \"...\", \"client_secret\": \"...\", \"expiry_date\": ... }\n");
 }
@@ -494,6 +581,14 @@ export async function withAuthRetry(operation, maxRetries = 1) {
     throw lastError;
 }
 export function getCredentialsInfo() {
+    // If already authenticated, return based on current auth type
+    if (authType === "gcloud") {
+        return {
+            email: "gcloud CLI User",
+            projectId: "gcloud",
+            type: "gcloud",
+        };
+    }
     const saCredentials = loadServiceAccountCredentials();
     if (saCredentials) {
         return {

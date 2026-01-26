@@ -25,7 +25,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
     "googleapis": "^144.0.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "gtm-agent-system": "file:../gtm-agent-system",
+    "gtm-agent-skills": "file:../gtm-agent-skills"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",

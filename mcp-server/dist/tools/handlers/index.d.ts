@@ -24,5 +24,6 @@ import { handleGtmVersionHeader } from "./version-header.handler.js";
 import { handleGtmZone } from "./zone.handler.js";
 import { handleGtmExportFull } from "./export.handler.js";
 import { handleGtmCache } from "./cache.handler.js";
+import { handleGtmWorkflow } from "./workflow.handler.js";
 export declare const handleToolCall: (name: string, args: Record<string, unknown>) => Promise<ToolResult>;
-export { handleGtmContext, handleGtmAccount, handleGtmContainer, handleGtmWorkspace, handleGtmTag, handleGtmTrigger, handleGtmVariable, handleGtmVersion, handleGtmBuiltInVariable, handleGtmClient, handleGtmDestination, handleGtmEnvironment, handleGtmFolder, handleGtmGtagConfig, handleGtmTemplate, handleGtmTransformation, handleGtmUserPermission, handleGtmVersionHeader, handleGtmZone, handleGtmExportFull, handleGtmCache, };
+export { handleGtmContext, handleGtmAccount, handleGtmContainer, handleGtmWorkspace, handleGtmTag, handleGtmTrigger, handleGtmVariable, handleGtmVersion, handleGtmBuiltInVariable, handleGtmClient, handleGtmDestination, handleGtmEnvironment, handleGtmFolder, handleGtmGtagConfig, handleGtmTemplate, handleGtmTransformation, handleGtmUserPermission, handleGtmVersionHeader, handleGtmZone, handleGtmExportFull, handleGtmCache, handleGtmWorkflow, };

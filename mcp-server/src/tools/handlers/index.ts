@@ -31,6 +31,7 @@ import { handleGtmVersionHeader } from "./version-header.handler.js";
 import { handleGtmZone } from "./zone.handler.js";
 import { handleGtmExportFull } from "./export.handler.js";
 import { handleGtmCache } from "./cache.handler.js";
+import { handleGtmWorkflow } from "./workflow.handler.js";
 
 // ==================== Handler Registry ====================
 
@@ -58,6 +59,7 @@ const handlers: HandlerMap = {
   gtm_zone: handleGtmZone,
   gtm_export_full: handleGtmExportFull,
   gtm_cache: handleGtmCache,
+  gtm_workflow: handleGtmWorkflow,
 };
 
 // ==================== Special Handler ====================
@@ -129,4 +131,5 @@ export {
   handleGtmZone,
   handleGtmExportFull,
   handleGtmCache,
+  handleGtmWorkflow,
 };
