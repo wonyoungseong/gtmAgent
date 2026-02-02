@@ -63,6 +63,10 @@ const OAUTH2_TOKEN_PATH = join(CONFIG_DIR, "oauth2-token.json");
 const ACCESS_TOKEN_PATH = join(CONFIG_DIR, "access-token.txt");
 const ACCESS_TOKEN_JSON_PATH = join(CONFIG_DIR, "access-token.json");
 
+// Shared token location (Claude MCP tokens - highest priority)
+const CLAUDE_MCP_TOKENS_DIR = join(homedir(), ".claude", "mcp-tokens");
+const SHARED_TOKEN_PATH = join(CLAUDE_MCP_TOKENS_DIR, "google.json");
+
 // OAuth2 Scopes
 const SCOPES = [
   "https://www.googleapis.com/auth/tagmanager.readonly",
@@ -270,7 +274,7 @@ function saveOAuth2Token(token: OAuth2Token): void {
 
 /**
  * Load access token data from all possible sources
- * Priority: ENV JSON > ENV plain > JSON file > TXT file
+ * Priority: ENV JSON > ENV plain > Claude shared token > JSON file > TXT file
  */
 function loadAccessTokenData(): AccessTokenData | null {
   // Return cached if recently validated
@@ -300,7 +304,18 @@ function loadAccessTokenData(): AccessTokenData | null {
     }
   }
 
-  // 3. JSON file (supports refresh)
+  // 3. Claude shared token (NEW - ~/.claude/mcp-tokens/google.json)
+  if (!data && existsSync(SHARED_TOKEN_PATH)) {
+    try {
+      const content = readFileSync(SHARED_TOKEN_PATH, "utf-8");
+      data = JSON.parse(content);
+      console.error(`[GTM MCP] Loaded token from ${SHARED_TOKEN_PATH} (shared)`);
+    } catch (error) {
+      console.error(`[GTM MCP] Failed to load shared token: ${error}`);
+    }
+  }
+
+  // 4. JSON file (supports refresh) - legacy location
   if (!data && existsSync(ACCESS_TOKEN_JSON_PATH)) {
     try {
       const content = readFileSync(ACCESS_TOKEN_JSON_PATH, "utf-8");
@@ -311,7 +326,7 @@ function loadAccessTokenData(): AccessTokenData | null {
     }
   }
 
-  // 4. Plain text file (legacy)
+  // 5. Plain text file (legacy)
   if (!data && existsSync(ACCESS_TOKEN_PATH)) {
     try {
       const token = readFileSync(ACCESS_TOKEN_PATH, "utf-8").trim();
